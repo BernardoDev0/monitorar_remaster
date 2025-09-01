@@ -10,12 +10,34 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   throw new Error('Missing Supabase environment variables (VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY)');
 }
 
+// Safe storage: alguns navegadores/browsers corporativos/modo privado podem bloquear localStorage
+// Isso causava exceção na importação do cliente e tela preta nas páginas que usam Supabase (Registros/Gráficos)
+const safeStorage: Storage = (() => {
+  try {
+    const k = '__sb_test__';
+    window.localStorage.setItem(k, '1');
+    window.localStorage.removeItem(k);
+    return window.localStorage;
+  } catch {
+    const mem: Record<string, string> = {};
+    // Implementação mínima compatível com Storage; cast para evitar problemas de tipo
+    return {
+      getItem: (key: string) => (key in mem ? mem[key] : null),
+      setItem: (key: string, value: string) => { mem[key] = String(value); },
+      removeItem: (key: string) => { delete mem[key]; },
+      clear: () => { Object.keys(mem).forEach((k) => delete mem[k]); },
+      key: (index: number) => Object.keys(mem)[index] ?? null,
+      get length() { return Object.keys(mem).length; }
+    } as unknown as Storage;
+  }
+})();
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    storage: safeStorage,
     persistSession: true,
     autoRefreshToken: true,
   }
