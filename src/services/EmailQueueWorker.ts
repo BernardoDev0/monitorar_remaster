@@ -9,6 +9,18 @@ const EMAILJS_PUBLIC_KEY = (import.meta as any).env?.VITE_EMAILJS_PUBLIC_KEY as 
 let started = false;
 let intervalId: number | undefined;
 
+// Fallback local mapping (mesmo da Edge Function) caso a linha da fila não tenha o e-mail explícito
+function getRecipient(name?: string): string | undefined {
+  if (!name) return undefined;
+  const map: Record<string, string> = {
+    'Rodrigo': 'rodrigo@monitorarconsultoria.com.br',
+    'Maurício': 'carlos.mauricio.prestserv@petrobras.com.br',
+    'Matheus': 'Matheus.e.lima.prestserv@petrobras.com.br',
+    'Wesley': 'Wesley_fgc@hotmail.com',
+  };
+  return map[name];
+}
+
 function ensureEmailJsInit() {
   if (EMAILJS_PUBLIC_KEY) {
     try {
@@ -30,8 +42,10 @@ async function fetchPending(limit = 5) {
 }
 
 function buildTemplateParams(item: any) {
+  const toEmail = item.recipient_email || getRecipient(item.employee_name);
   return {
-    to_email: item.recipient_email,
+    to_email: toEmail,
+    email: toEmail, // compatibilidade, caso o template use {{email}}
     to_name: item.recipient_name || item.employee_name,
     employee_name: item.employee_name,
     date: item.date,
@@ -39,7 +53,7 @@ function buildTemplateParams(item: any) {
     points: String(item.points ?? ''),
     observations: item.observations || 'Nenhuma observação',
     from_name: 'Sistema de Pontos'
-  } as Record<string, string>;
+  } as Record<string, string | undefined>;
 }
 
 async function markAsSent(id: string) {
@@ -60,7 +74,8 @@ async function markAsFailed(id: string, errMsg: string) {
 
 async function processOnce() {
   if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) {
-    // Config faltando, não processa
+    // eslint-disable-next-line no-console
+    console.warn('[EmailQueueWorker] EmailJS env vars ausentes. Pulei processamento.');
     return;
   }
   ensureEmailJsInit();
@@ -69,7 +84,14 @@ async function processOnce() {
   for (const item of items) {
     try {
       const params = buildTemplateParams(item);
-      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params, EMAILJS_PUBLIC_KEY);
+      if (!params.to_email) {
+        // eslint-disable-next-line no-console
+        console.error('[EmailQueueWorker] Sem destinatário. employee_name=', item?.employee_name, 'recipient_email=', item?.recipient_email);
+        await markAsFailed(item.id, 'recipient_email vazio (422)');
+        continue;
+      }
+
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params as any, EMAILJS_PUBLIC_KEY);
       await markAsSent(item.id);
       // eslint-disable-next-line no-console
       console.log('[EmailQueueWorker] sent', item.id);
