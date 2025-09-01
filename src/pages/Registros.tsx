@@ -12,17 +12,17 @@ import { ptBR } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
 import { CalculationsService } from "@/services/CalculationsService";
 import { 
-  Search, 
-  Filter, 
-  Download, 
-  Trash2, 
-  Edit, 
-  Calendar,
-  Clock,
-  User,
-  Building2,
-  Hash,
-  MessageSquare
+   Search, 
+   Filter, 
+   Download, 
+   Trash2, 
+   Edit, 
+   Calendar,
+   Clock,
+   User,
+   Building2,
+   Hash,
+   MessageSquare
 } from "lucide-react";
 import { 
   AlertDialog,
@@ -65,6 +65,7 @@ export default function Registros() {
   const [employees, setEmployees] = useState<string[]>([]);
   const [employeesFull, setEmployeesFull] = useState<{id:number; real_name:string;}[]>([]);
   const [loading, setLoading] = useState(true);
+  // estado de importação removido
 
   // Estados de edição/exclusão
   const [editOpen, setEditOpen] = useState(false);
@@ -84,32 +85,24 @@ export default function Registros() {
   const loadRecords = async () => {
     try {
       setLoading(true);
-      
-      // Buscar registros primeiro
       const { data: entries, error: entriesError } = await supabase
         .from('entry')
         .select('id, date, points, observations, refinery, employee_id')
         .order('date', { ascending: false })
         .limit(200);
-
       if (entriesError) throw entriesError;
 
-      // Buscar funcionários
       const { data: employees, error: employeesError } = await supabase
         .from('employee')
         .select('id, real_name');
-
       if (employeesError) throw employeesError;
 
       setEmployeesFull(employees || []);
-
-      // Criar mapa de funcionários para lookup rápido
       const employeeMap = employees?.reduce((map, emp) => {
         map[emp.id] = emp.real_name;
         return map;
       }, {} as Record<number, string>) || {};
 
-      // Transformar dados para o formato da interface
       const transformedRecords: EntryRecord[] = entries?.map(entry => ({
         id: entry.id,
         date: format(parseISO(entry.date), 'dd/MM/yyyy', { locale: ptBR }),
@@ -122,18 +115,11 @@ export default function Registros() {
       })) || [];
 
       setRecords(transformedRecords);
-
-      // Extrair funcionários únicos
       const uniqueEmployees = [...new Set(transformedRecords.map(r => r.employee))];
       setEmployees(uniqueEmployees);
-
     } catch (error) {
       console.error('Erro ao carregar registros:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar registros",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "Erro ao carregar registros", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -156,25 +142,15 @@ export default function Registros() {
   const handleUpdateRecord = async () => {
     if (!editRecordId) return;
     try {
-      // Montar timestamp a partir de dd/MM/yyyy HH:mm
       const parsed = parse(`${editDate} ${editTime}`, 'dd/MM/yyyy HH:mm', new Date());
       const iso = parsed.toISOString();
       const employee_id = editEmployeeId ? parseInt(editEmployeeId) : undefined;
       const points = parseInt(editPoints || '0', 10);
-
       const { error } = await supabase
         .from('entry')
-        .update({
-          date: iso,
-          employee_id,
-          refinery: editRefinery,
-          points,
-          observations: editObs,
-        })
+        .update({ date: iso, employee_id, refinery: editRefinery, points, observations: editObs })
         .eq('id', editRecordId);
-
       if (error) throw error;
-
       toast({ title: 'Registro atualizado', description: 'As alterações foram salvas.' });
       setEditOpen(false);
       await loadRecords();
@@ -210,30 +186,27 @@ export default function Registros() {
     }
   };
 
+  // Importar do mês atual (pasta local)
+  // handler de importação removido
+  // (removido) handler de importação do mês atual
+
   const filteredRecords = records.filter(record => {
     const matchesSearch = record.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          record.refinery.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          record.observations.toLowerCase().includes(searchTerm.toLowerCase());
-    
     const matchesEmployee = selectedEmployee === "todos" || record.employee === selectedEmployee;
-    
-    // Filtro por semana baseado no ciclo 26→25 (usando intervalo para evitar problemas de timezone)
     let matchesWeek = true;
     if (selectedWeek !== "todas") {
-      // Obter o intervalo da semana selecionada no ciclo atual
       const weekDates = CalculationsService.getWeekDates(selectedWeek);
-      // Converter data de dd/MM/yyyy de volta para ISO para comparação
       const [day, month, year] = record.date.split('/');
       const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
       matchesWeek = isoDate >= weekDates.start && isoDate <= weekDates.end;
     }
-    
     return matchesSearch && matchesEmployee && matchesWeek;
   });
 
   const exportToExcel = () => {
     try {
-      // Preparar dados para exportação
       const exportData = filteredRecords.map(record => ({
         'Data': record.date,
         'Horário': record.time,
@@ -244,43 +217,25 @@ export default function Registros() {
         'Status': record.status === 'completed' ? 'Concluído' : 
                   record.status === 'absent' ? 'Ausente' : 'Pendente'
       }));
-
-      // Criar workbook
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(exportData);
-
-      // Ajustar largura das colunas
       const colWidths = [
-        { wch: 12 }, // Data
-        { wch: 8 },  // Horário
-        { wch: 15 }, // Funcionário
-        { wch: 10 }, // Refinaria
-        { wch: 8 },  // Pontos
-        { wch: 30 }, // Observações
-        { wch: 10 }  // Status
+        { wch: 12 },
+        { wch: 8 },
+        { wch: 15 },
+        { wch: 10 },
+        { wch: 8 },
+        { wch: 30 },
+        { wch: 10 }
       ];
       ws['!cols'] = colWidths;
-
       XLSX.utils.book_append_sheet(wb, ws, "Registros");
-
-      // Gerar nome do arquivo com data atual
       const fileName = `registros_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
-      
-      // Salvar arquivo
       XLSX.writeFile(wb, fileName);
-
-      toast({
-        title: "Sucesso",
-        description: `Arquivo ${fileName} baixado com sucesso!`,
-      });
-
+      toast({ title: "Sucesso", description: `Arquivo ${fileName} baixado com sucesso!` });
     } catch (error) {
       console.error('Erro ao exportar:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao exportar dados para Excel",
-        variant: "destructive",
-      });
+      toast({ title: "Erro", description: "Erro ao exportar dados para Excel", variant: "destructive" });
     }
   };
 
@@ -302,14 +257,11 @@ export default function Registros() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Registros</h1>
           <p className="text-muted-foreground">Gerenciamento e histórico de registros da equipe</p>
         </div>
-
-        {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="bg-gradient-card shadow-card border-border">
             <CardContent className="p-4">
@@ -320,7 +272,6 @@ export default function Registros() {
               <p className="text-2xl font-bold text-dashboard-primary mt-2">{filteredRecords.length}</p>
             </CardContent>
           </Card>
-          
           <Card className="bg-gradient-card shadow-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
@@ -330,7 +281,6 @@ export default function Registros() {
               <p className="text-2xl font-bold text-dashboard-success mt-2">{completedRecords}</p>
             </CardContent>
           </Card>
-          
           <Card className="bg-gradient-card shadow-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
@@ -340,7 +290,6 @@ export default function Registros() {
               <p className="text-2xl font-bold text-dashboard-info mt-2">{totalPoints.toLocaleString()}</p>
             </CardContent>
           </Card>
-          
           <Card className="bg-gradient-card shadow-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
@@ -353,7 +302,6 @@ export default function Registros() {
         </div>
       </div>
 
-      {/* Filters */}
       <Card className="bg-gradient-card shadow-card border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
@@ -379,7 +327,6 @@ export default function Registros() {
                 </SelectContent>
               </Select>
             </div>
-            
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Funcionário:</label>
               <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
@@ -394,7 +341,6 @@ export default function Registros() {
                 </SelectContent>
               </Select>
             </div>
-            
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Buscar:</label>
               <div className="relative">
@@ -407,7 +353,6 @@ export default function Registros() {
                 />
               </div>
             </div>
-            
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Ações:</label>
               <div className="flex gap-2">
@@ -421,7 +366,6 @@ export default function Registros() {
                   <Download className="h-4 w-4 mr-1" />
                   Exportar
                 </Button>
-                {/* Excluir Todos com confirmação */}
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button 
@@ -453,7 +397,6 @@ export default function Registros() {
         </CardContent>
       </Card>
 
-      {/* Records Table */}
       <Card className="bg-gradient-card shadow-card border-border">
         <CardHeader>
           <CardTitle className="flex items-center justify-between text-foreground">
@@ -542,8 +485,7 @@ export default function Registros() {
           </Table>
         </CardContent>
       </Card>
-      
-      {/* Dialog de Edição */}
+
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="bg-gradient-card border-border">
           <DialogHeader>

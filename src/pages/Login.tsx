@@ -43,7 +43,7 @@ const Login = () => {
         
         toast({
           title: "Login realizado!",
-          description: "Bem-vindo, Luis! (CEO)"
+          description: "Bem-vindo ao Painel de controle!"
         });
         
         // Redirecionar para área administrativa

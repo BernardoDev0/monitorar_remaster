@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { CalculationsService } from './CalculationsService';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface ExcelRecord {
   employee: string;
@@ -372,7 +373,7 @@ export class ExcelProcessorService {
       const str = dateValue.trim();
 
       // dd/mm/yyyy [hh[:mm[:ss]]]
-      const m1 = str.match(/^\s*(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})(?:\s+(\d{1,2})(?::(\d{1,2})(?::(\d{1,2}))?)?)?\s*.*$/i);
+      const m1 = str.match(/^\s*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:\s+(\d{1,2})(?::(\d{1,2})(?::(\d{1,2}))?)?)?\s*.*$/i);
       if (m1) {
         const d = parseInt(m1[1], 10);
         const m = parseInt(m1[2], 10);
@@ -387,7 +388,7 @@ export class ExcelProcessorService {
 
       // 12-jul-2024 ou 12 jul 2024 (PT-BR)
       const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-      const m2 = str.toLowerCase().match(/^(\d{1,2})[\s\-\/\.]+([a-zçãé]{3,})[a-z]*[\s\-\/\.]+(\d{2,4})/i);
+      const m2 = str.toLowerCase().match(/^(\d{1,2})[\s\-\/.]+([a-zçãé]{3,})[a-z]*[\s\-\/.]+(\d{2,4})/i);
       if (m2) {
         const d = parseInt(m2[1], 10);
         let mon = meses.findIndex((m) => m2[2].startsWith(m));
@@ -531,7 +532,7 @@ export class ExcelProcessorService {
       console.log('🧮 Modo de agrupamento:', this.USE_COMPANY_CYCLE_FOR_LOCAL ? 'Ciclo 26→25' : 'Mês calendário');
       
       // Carregar URLs dos arquivos .xlsx/.xls dentro da pasta com espaço no nome
-      const modules = (import.meta as any).glob('/registros monitorar/**/*.{xlsx,xls}', { as: 'url', eager: true }) as Record<string, string>;
+      const modules = (import.meta as any).glob('/registros monitorar/**/*.{xlsx,xls}', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
       const entries = Object.entries(modules);
       
       console.log('📁 Arquivos encontrados:', entries.length);
@@ -561,7 +562,7 @@ export class ExcelProcessorService {
           const base = path.split('/')?.pop() || 'arquivo.xlsx';
           console.log(`📊 Processando arquivo: ${base}`);
           
-          // Com eager: true e as: 'url', modVal já é a URL string
+          // Com eager: true + query '?url' e import: 'default', modVal já é a URL string
           let url: string | undefined = modVal as unknown as string;
 
           if (!url || typeof url !== 'string') {
@@ -617,5 +618,153 @@ export class ExcelProcessorService {
       console.error('❌ Erro geral em loadLocalMonthlyChartData:', err);
       return null;
     }
+  }
+
+  // ===== NOVO: Importador direto para o banco (somente mês atual da empresa) =====
+  // Lê planilhas da pasta local '/adicionar no nosso bc' e insere em 'entry' SEM disparar emails
+  // Espera colunas: Data, Refinaria, Pontos, Observações
+  static async importLocalEntriesForCurrentCycleFromFolder(folder = '/adicionar no nosso bc') {
+    // 1) coletar arquivos (glob precisa ser literal, não pode interpolar variável)
+    const modules = (import.meta as any).glob('/adicionar no nosso bc/*.{xlsx,xls}', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
+    const fileEntries = Object.entries(modules);
+    if (!fileEntries.length) {
+      console.warn(`Nenhum arquivo Excel encontrado em '${folder}'`);
+      return { inserted: 0, skipped_duplicates: 0, files: [] as any[] };
+    }
+
+    // 2) datas do mês atual da empresa (26→25)
+    const { start, end } = CalculationsService.getMonthCycleDates();
+    const endExclusiveDate = new Date(`${end}T00:00:00Z`);
+    endExclusiveDate.setUTCDate(endExclusiveDate.getUTCDate() + 1);
+    const endExclusive = endExclusiveDate.toISOString().split('T')[0];
+
+    // 3) mapa funcionários (id por nome)
+    const { data: employees, error: empErr } = await supabase
+      .from('employee')
+      .select('id, real_name');
+    if (empErr) throw empErr;
+    const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const empByName = new Map<string, number>();
+    for (const e of employees || []) empByName.set(normalize(e.real_name), e.id);
+
+    let totalInserted = 0;
+    let totalSkipped = 0;
+    const perFile: any[] = [];
+
+    // helper: extrair nome do funcionário a partir do arquivo (reaproveita lógica usada em processador)
+    const extractEmployeeNameFromFilename = (filePath: string) => {
+      const base = filePath.split('/').pop() || filePath;
+      return base.replace(/\.(xlsx|xls)$/i, '');
+    };
+
+    const ensureDate = (raw: any): Date | null => {
+      // Tenta parse robusto: numero excel, string "YYYY-MM-DD HH:mm:ss", Date, etc.
+      const asStr = String(raw ?? '').trim();
+      if (!asStr) return null;
+      // numero excel
+      if (typeof raw === 'number') {
+        // Excel serial date -> JS Date (dias desde 1899-12-30)
+        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+        const millis = raw * 24 * 60 * 60 * 1000;
+        return new Date(excelEpoch.getTime() + millis);
+      }
+      // padrão com espaço
+      const tryIso = asStr.replace(' ', 'T');
+      const d = new Date(tryIso);
+      if (!isNaN(d.getTime())) return d;
+      // fallback
+      const d2 = new Date(asStr);
+      return isNaN(d2.getTime()) ? null : d2;
+    };
+
+    // 4) processar cada arquivo
+    for (const [virtualPath, url] of fileEntries) {
+      const employeeRaw = extractEmployeeNameFromFilename(virtualPath);
+      const empId = empByName.get(normalize(employeeRaw));
+      if (!empId) {
+        perFile.push({ file: virtualPath, inserted: 0, skipped: 0, error: `Funcionário não encontrado: ${employeeRaw}` });
+        continue;
+      }
+
+      try {
+        const res = await fetch(url);
+        const arrayBuf = await res.arrayBuffer();
+        const workbook = XLSX.read(arrayBuf, { type: 'array' });
+        const firstSheet = workbook.SheetNames[0];
+        const ws = workbook.Sheets[firstSheet];
+        const rows = XLSX.utils.sheet_to_json(ws) as any[];
+
+        // Buscar existentes do ciclo para esse funcionário e deduplicar
+        const { data: existing, error: exErr } = await supabase
+          .from('entry')
+          .select('id, date, points, refinery, observations')
+          .eq('employee_id', empId)
+          .gte('date', start)
+          .lt('date', endExclusive)
+          .limit(2000);
+        if (exErr) throw exErr;
+        const keyOf = (r: any) => `${new Date(r.date).toISOString()}|${r.points}|${(r.refinery||'').trim().toLowerCase()}|${(r.observations||'').trim().toLowerCase()}`;
+        const existingKeys = new Set((existing || []).map(keyOf));
+
+        const toInsert: any[] = [];
+        for (const row of rows) {
+          const dataCell = row['Data'] ?? row['data'] ?? row['DATA'];
+          const obsCell = row['Observações'] ?? row['Observacoes'] ?? row['observacoes'] ?? row['OBS'] ?? '';
+          const refCell = row['Refinaria'] ?? row['refinaria'] ?? '';
+          let pts = row['Pontos'] ?? row['pontos'] ?? 0;
+
+          // pular linhas de Total/restante
+          const dataCellStr = String(dataCell || '').toLowerCase();
+          const obsStr = String(obsCell || '').toLowerCase();
+          if (dataCellStr.startsWith('total') || obsStr.includes('restante mensal')) continue;
+
+          // parse pontos
+          if (typeof pts === 'string') {
+            pts = Number(pts.replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '')) || 0;
+          }
+
+          const d = ensureDate(dataCell);
+          if (!d) continue;
+          const iso = d.toISOString();
+          const isoDateOnly = iso.split('T')[0];
+          if (isoDateOnly < start || isoDateOnly >= endExclusive) continue; // fora do mês atual
+
+          const candidate = {
+            date: iso,
+            employee_id: empId,
+            refinery: String(refCell || ''),
+            points: Number(pts) || 0,
+            observations: String(obsCell || ''),
+          };
+          const candKey = `${candidate.date}|${candidate.points}|${candidate.refinery.trim().toLowerCase()}|${candidate.observations.trim().toLowerCase()}`;
+          if (!existingKeys.has(candKey)) {
+            existingKeys.add(candKey);
+            toInsert.push(candidate);
+          } else {
+            totalSkipped++;
+          }
+        }
+
+        let inserted = 0;
+        // inserir em lotes
+        const chunkSize = 100;
+        for (let i = 0; i < toInsert.length; i += chunkSize) {
+          const chunk = toInsert.slice(i, i + chunkSize);
+          if (!chunk.length) continue;
+          const { error: insErr, count } = await supabase
+            .from('entry')
+            .insert(chunk, { count: 'exact' });
+          if (insErr) throw insErr;
+          inserted += count || chunk.length;
+        }
+
+        totalInserted += inserted;
+        perFile.push({ file: virtualPath, inserted, skipped: toInsert.length - inserted });
+      } catch (e: any) {
+        perFile.push({ file: virtualPath, inserted: 0, skipped: 0, error: e?.message || String(e) });
+      }
+    }
+
+    return { inserted: totalInserted, skipped_duplicates: totalSkipped, files: perFile };
   }
 }
