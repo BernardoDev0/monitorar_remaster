@@ -9,6 +9,13 @@ const EMAILJS_PUBLIC_KEY = (import.meta as any).env?.VITE_EMAILJS_PUBLIC_KEY as 
 let started = false;
 let intervalId: number | undefined;
 
+// Janela de "recência" para evitar enviar backlog quando permissões/worker forem habilitados
+// Somente processa itens criados dentro dos últimos X minutos
+const FRESH_WINDOW_MINUTES = 10; // ajuste conforme necessidade
+
+// Expirar itens muito antigos para não acumular pendências eternas
+const EXPIRE_AFTER_MINUTES = 60; // marca como failed após 60 minutos
+
 // Fallback local mapping (mesmo da Edge Function) caso a linha da fila não tenha o e-mail explícito
 function getRecipient(name?: string): string | undefined {
   if (!name) return undefined;
@@ -29,16 +36,36 @@ function ensureEmailJsInit() {
   }
 }
 
-async function fetchPending(limit = 5) {
-  const { data, error } = await supabase
+async function expireOldPending(cutoffIso: string) {
+  try {
+    const { error } = await supabase
+      .from('email_queue')
+      .update({ status: 'failed', error: 'expired (older than policy)' })
+      .eq('status', 'pending')
+      .lt('created_at', cutoffIso);
+    if (error) throw error;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[EmailQueueWorker] Não foi possível expirar pendências antigas:', (e as any)?.message || e);
+  }
+}
+
+async function fetchPending(limit = 1, sinceIso?: string) {
+  let query = supabase
     .from('email_queue')
     .select('*')
-    .eq('status', 'pending')
+    .eq('status', 'pending');
+
+  if (sinceIso) {
+    query = query.gte('created_at', sinceIso);
+  }
+
+  const { data, error } = await query
     .order('created_at', { ascending: true })
     .limit(limit);
 
   if (error) throw error;
-  return data || [];
+  return (data || []).filter(Boolean);
 }
 
 function buildTemplateParams(item: any) {
@@ -80,14 +107,23 @@ async function processOnce() {
   }
   ensureEmailJsInit();
 
+  const now = Date.now();
+  const freshSinceIso = new Date(now - FRESH_WINDOW_MINUTES * 60 * 1000).toISOString();
+  const expireCutoffIso = new Date(now - EXPIRE_AFTER_MINUTES * 60 * 1000).toISOString();
+
+  // Passo 1: expirar pendências muito antigas (não processar backlog)
+  await expireOldPending(expireCutoffIso);
+
+  // Passo 2: buscar somente itens "recentes" (apenas 1 por ciclo para evitar rajadas)
   let items: any[] = [];
   try {
-    items = await fetchPending(5);
+    items = await fetchPending(1, freshSinceIso);
   } catch (e: any) {
     // eslint-disable-next-line no-console
     console.error('[EmailQueueWorker] Falha ao buscar fila (possível RLS). Erro:', e?.message || e);
     return;
   }
+
   for (const item of items) {
     try {
       const params = buildTemplateParams(item);
