@@ -27,7 +27,7 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
           
-          {/* Rotas com sidebar - CEO Dashboard */}
+          {/* Rotas com sidebar - Dashboard */}
           <Route path="/admin/*" element={
             <SidebarProvider>
               <div className="min-h-screen flex w-full bg-background">

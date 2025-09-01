@@ -8,7 +8,7 @@ export function Header() {
           <TrendingUp className="h-8 w-8 text-primary-foreground" />
         </div>
         <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-          Dashboard CEO
+          Dashboard 
         </h1>
       </div>
       <p className="text-lg text-muted-foreground">

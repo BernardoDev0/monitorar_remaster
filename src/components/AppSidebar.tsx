@@ -51,7 +51,7 @@ export function AppSidebar() {
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
             <h2 className="text-lg font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Dashboard CEO
+              Dashboard 
             </h2>
             <p className="text-xs text-muted-foreground">Sistema de Monitoramento</p>
           </div>
