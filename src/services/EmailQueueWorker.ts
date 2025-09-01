@@ -80,7 +80,14 @@ async function processOnce() {
   }
   ensureEmailJsInit();
 
-  const items = await fetchPending(5);
+  let items: any[] = [];
+  try {
+    items = await fetchPending(5);
+  } catch (e: any) {
+    // eslint-disable-next-line no-console
+    console.error('[EmailQueueWorker] Falha ao buscar fila (possível RLS). Erro:', e?.message || e);
+    return;
+  }
   for (const item of items) {
     try {
       const params = buildTemplateParams(item);
