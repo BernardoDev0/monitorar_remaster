@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import Index from "./pages/Index";
 import Graficos from "./pages/Graficos";
 import Registros from "./pages/Registros";
+import PointRegistration from "./pages/PointRegistration";
 
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -40,6 +41,7 @@ const App = () => (
                       <Route path="/" element={<Index />} />
                       <Route path="/graficos" element={<Graficos />} />
                       <Route path="/registros" element={<Registros />} />
+                      <Route path="/email-teste" element={<PointRegistration />} />
                       
                     </Routes>
                   </div>

@@ -1,5 +1,5 @@
 // Supabase Edge Function: send-confirmation-email
-// Using Supabase native email (100% free)
+// Sistema híbrido: armazena dados para o frontend enviar via EmailJS
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -11,7 +11,6 @@ interface Payload {
   observations: string;
 }
 
-// Basic CORS headers for browser calls
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -35,10 +34,7 @@ serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }), 
-      { 
-        status: 405, 
-        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
-      }
+      { status: 405, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }
 
@@ -49,118 +45,11 @@ serve(async (req: Request) => {
     if (!to) {
       return new Response(
         JSON.stringify({ error: `Recipient not found for employee '${payload.employee_name}'` }), 
-        { 
-          status: 400, 
-          headers: { 'Content-Type': 'application/json', ...corsHeaders } 
-        }
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    // Branding configuration (optional)
-    const BRAND_COLOR = Deno.env.get('BRAND_COLOR') ?? '#0ea5e9';
-    const BRAND_NAME = Deno.env.get('BRAND_NAME') ?? 'Sistema de Pontos';
-    const LOGO_URL = Deno.env.get('LOGO_URL') ?? '';
-
-    const subject = 'Confirmação de Ponto Registrado';
-
-    // Professional HTML template
-    const htmlBody = `<!doctype html>
-<html lang="pt-BR">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${subject}</title>
-    <meta name="color-scheme" content="light only" />
-  </head>
-  <body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#0f172a;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f7f9;padding:24px 0;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,0.04);overflow:hidden;">
-            <tr>
-              <td style="padding:20px 24px;border-bottom:1px solid #f1f5f9;background:${BRAND_COLOR};color:#ffffff;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                  <tr>
-                    <td style="vertical-align:middle;">
-                      ${LOGO_URL ? `<img src="${LOGO_URL}" alt="${BRAND_NAME}" height="24" style="display:block;height:24px;width:auto;" />` : `<span style="font-size:16px;font-weight:600;">${BRAND_NAME}</span>`}
-                    </td>
-                    <td align="right" style="vertical-align:middle;">
-                      <span style="font-size:12px;opacity:.95;">${subject}</span>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:24px;">
-                <p style="margin:0 0 12px 0;font-size:14px;">Olá <strong>${payload.employee_name}</strong>,</p>
-                <p style="margin:0 0 16px 0;font-size:14px;">Seu ponto foi registrado com sucesso:</p>
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0 8px;">
-                  <tr>
-                    <td style="width:140px;color:#64748b;font-size:13px;">Data/Hora:</td>
-                    <td style="font-size:14px;color:#0f172a;"><strong>${payload.date}</strong></td>
-                  </tr>
-                  <tr>
-                    <td style="width:140px;color:#64748b;font-size:13px;">Refinaria:</td>
-                    <td style="font-size:14px;color:#0f172a;"><strong>${payload.refinery}</strong></td>
-                  </tr>
-                  <tr>
-                    <td style="width:140px;color:#64748b;font-size:13px;">Pontos:</td>
-                    <td style="font-size:14px;color:#0f172a;"><strong>${payload.points}</strong></td>
-                  </tr>
-                  <tr>
-                    <td style="width:140px;color:#64748b;font-size:13px;">Observações:</td>
-                    <td style="font-size:14px;color:#0f172a;"><strong>${payload.observations || '-'}</strong></td>
-                  </tr>
-                </table>
-                <p style="margin:20px 0 0 0;font-size:14px;">Atenciosamente,<br/>${BRAND_NAME}</p>
-              </td>
-            </tr>
-          </table>
-          <div style="font-size:12px;color:#94a3b8;margin-top:12px;">Mensagem automática — não responda este e-mail.</div>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
-
-    // Method 0: Try Resend API if configured (recommended for reliability)
-    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-    const RESEND_FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'no-reply@monitorarconsultoria.com.br';
-    if (RESEND_API_KEY) {
-      try {
-        console.log('[send-confirmation-email] Attempting Resend provider...');
-        const resp = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: RESEND_FROM_EMAIL,
-            to: [to],
-            subject,
-            html: htmlBody,
-          })
-        });
-
-        if (resp.ok) {
-          const json = await resp.json();
-          console.log('[send-confirmation-email] Email sent via Resend:', json);
-          return new Response(
-            JSON.stringify({ success: true, provider: 'resend', sent_to: to, id: json?.id }),
-            { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-          );
-        } else {
-          const text = await resp.text();
-          console.error('[send-confirmation-email] Resend failed:', resp.status, text);
-        }
-      } catch (err) {
-        console.error('[send-confirmation-email] Resend provider error:', err);
-      }
-    }
-
-    // Initialize Supabase client with service role key
+    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
@@ -171,163 +60,153 @@ serve(async (req: Request) => {
       }
     });
 
-    console.log(`[send-confirmation-email] Sending to: ${to} using Supabase native email`);
+    console.log(`[send-confirmation-email] Processing email for: ${to} (employee: ${payload.employee_name})`);
 
-    // Method 1: Try using Supabase Auth email templates (if user exists)
-    try {
-      // First check if user exists in your auth system
-      const { data: users, error: userError } = await supabase.auth.admin.listUsers();
-      
-      const existingUser = users?.users?.find(user => user.email === to);
-      
-      if (existingUser) {
-        // User exists, we can use auth email system
-        const { data, error } = await supabase.auth.admin.generateLink({
-          type: 'recovery',
-          email: to,
-          options: {
-            redirectTo: `${supabaseUrl}/auth/callback`,
-            data: {
-              // Custom data for the email
-              employee_name: payload.employee_name,
-              date: payload.date,
-              points: payload.points,
-              refinery: payload.refinery,
-              observations: payload.observations,
-              email_type: 'point_confirmation'
-            }
-          }
+    // Tentar alternativa GRATUITA: Resend.com (3000 emails/mês grátis)
+    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+    
+    if (RESEND_API_KEY) {
+      try {
+        const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Confirmação de Ponto Registrado</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #0ea5e9;">Confirmação de Ponto Registrado</h2>
+        
+        <p>Olá <strong>${payload.employee_name}</strong>,</p>
+        
+        <p>Seu ponto foi registrado com sucesso:</p>
+        
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0;">
+            <p><strong>📅 Data/Hora:</strong> ${payload.date}</p>
+            <p><strong>🏭 Refinaria:</strong> ${payload.refinery}</p>
+            <p><strong>📊 Pontos:</strong> ${payload.points}</p>
+            <p><strong>📝 Observações:</strong> ${payload.observations || 'Nenhuma observação'}</p>
+        </div>
+        
+        <p>Atenciosamente,<br>
+        <strong>Sistema de Pontos</strong></p>
+        
+        <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+        <p style="font-size: 12px; color: #666;">
+            Esta é uma mensagem automática. Não responda este email.
+        </p>
+    </div>
+</body>
+</html>`;
+
+        const resendResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'Sistema de Pontos <noreply@bernardovelosotavares.dev>', // Você precisa configurar um domínio
+            to: [to],
+            subject: 'Confirmação de Ponto Registrado',
+            html: emailHtml,
+            text: `Olá ${payload.employee_name},\n\nSeu ponto foi registrado com sucesso:\n\nData/Hora: ${payload.date}\nRefinaria: ${payload.refinery}\nPontos: ${payload.points}\nObservações: ${payload.observations || 'Nenhuma observação'}\n\nAtenciosamente,\nSistema de Pontos`
+          })
         });
 
-        if (!error && data) {
-          console.log('[send-confirmation-email] Email sent via Supabase Auth system');
+        if (resendResponse.ok) {
+          const resendResult = await resendResponse.json();
+          console.log(`[send-confirmation-email] ✅ Email sent via Resend to: ${to}`, resendResult);
           
           return new Response(
             JSON.stringify({ 
               success: true, 
-              provider: 'supabase_auth',
+              provider: 'resend',
               sent_to: to,
-              method: 'existing_user'
-            }), 
-            { 
-              status: 200, 
-              headers: { 'Content-Type': 'application/json', ...corsHeaders } 
-            }
+              sent_from: 'noreply@bernardovelosotavares.dev',
+              message: 'Email enviado com sucesso via Resend!',
+              email_id: resendResult.id
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
           );
+        } else {
+          const resendError = await resendResponse.text();
+          console.error(`[send-confirmation-email] ❌ Resend error:`, resendError);
         }
+      } catch (resendError) {
+        console.error('[send-confirmation-email] ❌ Resend failed:', resendError);
       }
-    } catch (authError) {
-      console.log('[send-confirmation-email] Auth method failed, trying direct approach:', authError);
     }
 
-    // Method 2: Create a temporary user and send invite (will be cleaned up)
+    // Fallback: Armazenar no banco para o frontend processar com EmailJS
     try {
-      const tempPassword = crypto.randomUUID();
-      
-      // Create temporary user
-      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-        email: to,
-        password: tempPassword,
-        email_confirm: false, // Don't require email confirmation initially
-        user_metadata: {
+      const { data: notification, error: dbError } = await supabase
+        .from('email_queue')
+        .insert({
+          recipient_email: to,
+          recipient_name: payload.employee_name,
           employee_name: payload.employee_name,
           date: payload.date,
-          points: payload.points,
           refinery: payload.refinery,
-          observations: payload.observations,
-          temp_user: true, // Mark as temporary
-          created_for: 'point_confirmation'
-        }
-      });
+          points: payload.points,
+          observations: payload.observations || '',
+          status: 'pending',
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
 
-      if (createError) {
-        throw new Error(`Failed to create temp user: ${createError.message}`);
+      if (dbError) {
+        console.error('[send-confirmation-email] Database insert failed:', dbError);
+        throw dbError;
       }
 
-      // Send password reset email (this will contain our notification)
-      const { error: resetError } = await supabase.auth.admin.generateLink({
-        type: 'recovery',
-        email: to,
-        options: {
-          redirectTo: `${supabaseUrl}/auth/callback?type=point_confirmation`,
-          data: {
-            employee_name: payload.employee_name,
-            date: payload.date,
-            points: payload.points,
-            refinery: payload.refinery,
-            observations: payload.observations,
-            email_type: 'point_confirmation'
-          }
-        }
-      });
-
-      if (resetError) {
-        // Clean up the temporary user if email sending failed
-        if (newUser?.user?.id) {
-          await supabase.auth.admin.deleteUser(newUser.user.id);
-        }
-        throw new Error(`Failed to send email: ${resetError.message}`);
-      }
-
-      // Schedule cleanup of temporary user (optional, or you can clean up manually)
-      console.log(`[send-confirmation-email] Temporary user created: ${newUser?.user?.id}, email sent successfully`);
-
+      console.log(`[send-confirmation-email] ✅ Email queued for frontend processing:`, notification.id);
+      
       return new Response(
         JSON.stringify({ 
           success: true, 
-          provider: 'supabase_temp_user',
+          provider: 'frontend_queue',
           sent_to: to,
-          method: 'temporary_user',
-          temp_user_id: newUser?.user?.id
-        }), 
-        { 
-          status: 200, 
-          headers: { 'Content-Type': 'application/json', ...corsHeaders } 
-        }
+          queue_id: notification.id,
+          message: 'Email adicionado à fila para envio via frontend',
+          instructions: 'O frontend deve processar a fila e enviar via EmailJS'
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
 
-    } catch (tempUserError) {
-      console.error('[send-confirmation-email] Temporary user method failed:', tempUserError);
+    } catch (dbError) {
+      console.error('[send-confirmation-email] ❌ Database error:', dbError);
+      
+      // Última tentativa: resposta com dados para frontend processar
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          provider: 'immediate_frontend',
+          email_data: {
+            to: to,
+            employee_name: payload.employee_name,
+            date: payload.date,
+            refinery: payload.refinery,
+            points: payload.points,
+            observations: payload.observations || ''
+          },
+          message: 'Dados do email retornados para o frontend processar imediatamente'
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
     }
 
-    // Method 3: Fallback - Log the email content (for development/debugging)
-    console.log('[send-confirmation-email] All email methods failed, logging content for manual processing:');
-    console.log('='.repeat(50));
-    console.log(`TO: ${to}`);
-    console.log(`SUBJECT: ${subject}`);
-    console.log(`EMPLOYEE: ${payload.employee_name}`);
-    console.log(`DATE: ${payload.date}`);
-    console.log(`REFINERY: ${payload.refinery}`);
-    console.log(`POINTS: ${payload.points}`);
-    console.log(`OBSERVATIONS: ${payload.observations}`);
-    console.log('='.repeat(50));
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        provider: 'console_log',
-        sent_to: to,
-        method: 'logged_to_console',
-        message: 'Email content logged to console - check Supabase function logs'
-      }), 
-      { 
-        status: 200, 
-        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
-      }
-    );
-
   } catch (error) {
-    console.error('[send-confirmation-email] Unexpected error:', error);
+    console.error('[send-confirmation-email] ❌ Unexpected error:', error);
     return new Response(
       JSON.stringify({ 
         error: 'internal_error',
         message: 'An unexpected error occurred',
         details: String(error)
       }), 
-      { 
-        status: 500, 
-        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
-      }
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }
 });
