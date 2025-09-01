@@ -76,7 +76,11 @@ export class DataService {
       query = query.gte('date', filters.startDate);
     }
     if (filters?.endDate) {
-      query = query.lte('date', filters.endDate);
+      // Usar limite superior exclusivo: end + 1 dia
+      const endExclusive = new Date(`${filters.endDate}T00:00:00Z`);
+      endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+      const endExclusiveStr = endExclusive.toISOString().split('T')[0];
+      query = query.lt('date', endExclusiveStr);
     }
     if (filters?.limit) {
       query = query.limit(filters.limit);
@@ -100,12 +104,17 @@ export class DataService {
     startDate: string, 
     endDate: string
   ): Promise<number> {
+    // Tornar limite superior exclusivo: end + 1 dia
+    const endExclusive = new Date(`${endDate}T00:00:00Z`);
+    endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+    const endExclusiveStr = endExclusive.toISOString().split('T')[0];
+
     const { data, error } = await supabase
       .from('entry')
       .select('points')
       .eq('employee_id', employeeId)
       .gte('date', startDate)
-      .lte('date', endDate);
+      .lt('date', endExclusiveStr);
 
     if (error) {
       console.error('Erro ao calcular pontos:', error);

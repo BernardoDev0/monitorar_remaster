@@ -156,7 +156,11 @@ export class EmployeeService {
         query = query.gte('date', dateFilter.start);
       }
       if (dateFilter?.end) {
-        query = query.lte('date', dateFilter.end);
+        // Tornar limite superior exclusivo: end + 1 dia
+        const endExclusive = new Date(`${dateFilter.end}T00:00:00Z`);
+        endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+        const endExclusiveStr = endExclusive.toISOString().split('T')[0];
+        query = query.lt('date', endExclusiveStr);
       }
       if (limit) {
         query = query.limit(limit);
@@ -182,14 +186,19 @@ export class EmployeeService {
   // Calcular pontos do dia
   static async getTodayPoints(employeeId: number): Promise<number> {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      // Usar janela [início do dia, início do próximo dia) para evitar problemas de timezone
+      const todayDate = new Date();
+      const startStr = todayDate.toISOString().split('T')[0];
+      const endDate = new Date(todayDate);
+      endDate.setUTCDate(endDate.getUTCDate() + 1);
+      const endStr = endDate.toISOString().split('T')[0];
       
       const { data, error } = await supabase
         .from('entry')
         .select('points')
         .eq('employee_id', employeeId)
-        .gte('date', today)
-        .lt('date', `${today}T23:59:59`);
+        .gte('date', startStr)
+        .lt('date', endStr);
 
       if (error) {
         console.error('Erro ao calcular pontos do dia:', error);
@@ -206,12 +215,17 @@ export class EmployeeService {
   // Calcular pontos da semana (baseado na lógica 26→25)
   static async getWeekPoints(employeeId: number, weekDates: { start: string; end: string }): Promise<number> {
     try {
+      // Tornar limite superior exclusivo: end + 1 dia
+      const endExclusive = new Date(`${weekDates.end}T00:00:00Z`);
+      endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+      const endExclusiveStr = endExclusive.toISOString().split('T')[0];
+
       const { data, error } = await supabase
         .from('entry')
         .select('points')
         .eq('employee_id', employeeId)
         .gte('date', weekDates.start)
-        .lte('date', weekDates.end);
+        .lt('date', endExclusiveStr);
 
       if (error) {
         console.error('Erro ao calcular pontos da semana:', error);
@@ -228,12 +242,17 @@ export class EmployeeService {
   // Calcular pontos mensais (baseado na lógica 26→25)
   static async getMonthPoints(employeeId: number, monthDates: { start: string; end: string }): Promise<number> {
     try {
+      // Tornar limite superior exclusivo: end + 1 dia
+      const endExclusive = new Date(`${monthDates.end}T00:00:00Z`);
+      endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+      const endExclusiveStr = endExclusive.toISOString().split('T')[0];
+
       const { data, error } = await supabase
         .from('entry')
         .select('points')
         .eq('employee_id', employeeId)
         .gte('date', monthDates.start)
-        .lte('date', monthDates.end);
+        .lt('date', endExclusiveStr);
 
       if (error) {
         console.error('Erro ao calcular pontos mensais:', error);

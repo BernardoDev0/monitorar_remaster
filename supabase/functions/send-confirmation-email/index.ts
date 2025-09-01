@@ -56,23 +56,10 @@ serve(async (req: Request) => {
       );
     }
 
-    // Initialize Supabase client with service role key
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
-
     // Branding configuration (optional)
     const BRAND_COLOR = Deno.env.get('BRAND_COLOR') ?? '#0ea5e9';
     const BRAND_NAME = Deno.env.get('BRAND_NAME') ?? 'Sistema de Pontos';
     const LOGO_URL = Deno.env.get('LOGO_URL') ?? '';
-
-    console.log(`[send-confirmation-email] Sending to: ${to} using Supabase native email`);
 
     const subject = 'Confirmação de Ponto Registrado';
 
@@ -136,6 +123,55 @@ serve(async (req: Request) => {
     </table>
   </body>
 </html>`;
+
+    // Method 0: Try Resend API if configured (recommended for reliability)
+    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+    const RESEND_FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'no-reply@monitorarconsultoria.com.br';
+    if (RESEND_API_KEY) {
+      try {
+        console.log('[send-confirmation-email] Attempting Resend provider...');
+        const resp = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: RESEND_FROM_EMAIL,
+            to: [to],
+            subject,
+            html: htmlBody,
+          })
+        });
+
+        if (resp.ok) {
+          const json = await resp.json();
+          console.log('[send-confirmation-email] Email sent via Resend:', json);
+          return new Response(
+            JSON.stringify({ success: true, provider: 'resend', sent_to: to, id: json?.id }),
+            { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+          );
+        } else {
+          const text = await resp.text();
+          console.error('[send-confirmation-email] Resend failed:', resp.status, text);
+        }
+      } catch (err) {
+        console.error('[send-confirmation-email] Resend provider error:', err);
+      }
+    }
+
+    // Initialize Supabase client with service role key
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+
+    console.log(`[send-confirmation-email] Sending to: ${to} using Supabase native email`);
 
     // Method 1: Try using Supabase Auth email templates (if user exists)
     try {
