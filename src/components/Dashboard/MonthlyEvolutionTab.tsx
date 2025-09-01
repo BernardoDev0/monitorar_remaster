@@ -10,6 +10,7 @@ import { ptBR } from "date-fns/locale";
 interface MonthlyEvolutionTabProps {
   employeeId: number;
   monthlyGoal: number;
+  weeklyGoal?: number;
 }
 
 interface WeeklyData {
@@ -19,7 +20,7 @@ interface WeeklyData {
   goal: number;
 }
 
-export const MonthlyEvolutionTab = ({ employeeId, monthlyGoal }: MonthlyEvolutionTabProps) => {
+export const MonthlyEvolutionTab = ({ employeeId, monthlyGoal, weeklyGoal }: MonthlyEvolutionTabProps) => {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +41,7 @@ export const MonthlyEvolutionTab = ({ employeeId, monthlyGoal }: MonthlyEvolutio
       setEntries(monthEntries);
       
       // Calcular dados por semana usando o sistema 26→25
-      const weeklyGoal = monthlyGoal / 5; // Sempre 5 semanas
+      const weeklyGoalValue = typeof weeklyGoal === 'number' ? weeklyGoal : (monthlyGoal / 5); // Sempre 5 semanas
       
       const chartData: WeeklyData[] = [];
       
@@ -59,7 +60,7 @@ export const MonthlyEvolutionTab = ({ employeeId, monthlyGoal }: MonthlyEvolutio
             week: `week-${weekNum}`,
             weekLabel: `Semana ${weekNum}`,
             points: weekPoints,
-            goal: Math.round(weeklyGoal)
+            goal: Math.round(weeklyGoalValue)
           });
         } catch (error) {
           // Se der erro ao calcular uma semana, adicionar dados zerados
@@ -67,7 +68,7 @@ export const MonthlyEvolutionTab = ({ employeeId, monthlyGoal }: MonthlyEvolutio
             week: `week-${weekNum}`,
             weekLabel: `Semana ${weekNum}`,
             points: 0,
-            goal: Math.round(weeklyGoal)
+            goal: Math.round(weeklyGoalValue)
           });
         }
       }
@@ -99,7 +100,7 @@ export const MonthlyEvolutionTab = ({ employeeId, monthlyGoal }: MonthlyEvolutio
   }
 
   const totalPoints = weeklyData.reduce((sum, week) => sum + week.points, 0);
-  const totalGoal = weeklyData.reduce((sum, week) => sum + week.goal, 0);
+  const totalGoal = monthlyGoal; // usar meta mensal passada via prop
   const progress = totalGoal > 0 ? (totalPoints / totalGoal) * 100 : 0;
 
   return (
@@ -134,9 +135,9 @@ export const MonthlyEvolutionTab = ({ employeeId, monthlyGoal }: MonthlyEvolutio
                 />
                 <Tooltip 
                   labelFormatter={(value) => value}
-                  formatter={(value: number, name: string) => [
+                  formatter={(value: number, name: string, props: any) => [
                     value.toLocaleString(), 
-                    name === 'points' ? 'Pontos' : 'Meta'
+                    props?.dataKey === 'points' ? 'Pontos' : 'Meta'
                   ]}
                   contentStyle={{
                     backgroundColor: 'hsl(var(--card))',
@@ -183,8 +184,8 @@ export const MonthlyEvolutionTab = ({ employeeId, monthlyGoal }: MonthlyEvolutio
             </div>
           </div>
           
-          <div className="text-center p-4 bg-secondary/5 rounded-lg border border-secondary/20">
-            <div className="text-2xl font-bold text-secondary mb-1">
+          <div className="text-center p-4 rounded-lg border bg-dashboard-secondary/10 border-dashboard-secondary/30 backdrop-blur-sm shadow-card">
+            <div className="text-2xl font-bold text-dashboard-secondary mb-1">
               {totalGoal}
             </div>
             <div className="text-sm text-muted-foreground">

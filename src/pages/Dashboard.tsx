@@ -329,10 +329,7 @@ const Dashboard = () => {
           </TabsList>
 
           <TabsContent value="evolucao" className="mt-6">
-            <MonthlyEvolutionTab 
-              employeeId={currentUser.id} 
-              monthlyGoal={metrics.monthlyGoal}
-            />
+            <MonthlyEvolutionTab employeeId={currentUser.id} monthlyGoal={metrics.monthlyGoal} weeklyGoal={metrics.weeklyGoal} />
           </TabsContent>
 
           <TabsContent value="registrar" className="mt-6">
