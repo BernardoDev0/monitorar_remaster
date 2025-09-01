@@ -107,7 +107,7 @@ serve(async (req: Request) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'Sistema de Pontos <noreply@bernardovelosotavares.dev>', // Você precisa configurar um domínio
+            from: 'Sistema de Pontos <bernardovelosotavares@gmail.com>', // Você precisa configurar um domínio
             to: [to],
             subject: 'Confirmação de Ponto Registrado',
             html: emailHtml,
