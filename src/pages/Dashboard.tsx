@@ -386,7 +386,9 @@ const Dashboard = () => {
 
                   <Button 
                     type="submit" 
-                    className="bg-gradient-primary hover:opacity-90 text-white"
+                    variant="dashboard"
+                    size="lg"
+                    className="rounded-full px-6 backdrop-blur-md"
                     disabled={loading}
                   >
                     {loading ? 'Registrando...' : 'Registrar'}
