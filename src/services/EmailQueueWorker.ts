@@ -45,27 +45,39 @@ async function expireOldPending(cutoffIso: string) {
       .lt('created_at', cutoffIso);
     if (error) throw error;
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.warn('[EmailQueueWorker] Não foi possível expirar pendências antigas:', (e as any)?.message || e);
+    // Silenciar erros de rede para não poluir console e não quebrar aplicação
+    const errorMsg = (e as any)?.message || String(e);
+    if (!errorMsg.includes('net::ERR_FAILED') && !errorMsg.includes('fetch')) {
+      console.warn('[EmailQueueWorker] Erro ao expirar pendências antigas:', errorMsg);
+    }
   }
 }
 
 async function fetchPending(limit = 1, sinceIso?: string) {
-  let query = supabase
-    .from('email_queue')
-    .select('*')
-    .eq('status', 'pending');
+  try {
+    let query = supabase
+      .from('email_queue')
+      .select('*')
+      .eq('status', 'pending');
 
-  if (sinceIso) {
-    query = query.gte('created_at', sinceIso);
+    if (sinceIso) {
+      query = query.gte('created_at', sinceIso);
+    }
+
+    const { data, error } = await query
+      .order('created_at', { ascending: true })
+      .limit(limit);
+
+    if (error) throw error;
+    return (data || []).filter(Boolean);
+  } catch (e) {
+    // Retornar array vazio em caso de erro de rede para não quebrar o worker
+    const errorMsg = (e as any)?.message || String(e);
+    if (!errorMsg.includes('net::ERR_FAILED') && !errorMsg.includes('fetch')) {
+      console.warn('[EmailQueueWorker] Erro ao buscar pendências:', errorMsg);
+    }
+    return [];
   }
-
-  const { data, error } = await query
-    .order('created_at', { ascending: true })
-    .limit(limit);
-
-  if (error) throw error;
-  return (data || []).filter(Boolean);
 }
 
 function buildTemplateParams(item: any) {
@@ -84,19 +96,35 @@ function buildTemplateParams(item: any) {
 }
 
 async function markAsSent(id: string) {
-  const { error } = await supabase
-    .from('email_queue')
-    .update({ status: 'sent', sent_at: new Date().toISOString() })
-    .eq('id', id);
-  if (error) throw error;
+  try {
+    const { error } = await supabase
+      .from('email_queue')
+      .update({ status: 'sent', sent_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+  } catch (e) {
+    // Silenciar erros de rede
+    const errorMsg = (e as any)?.message || String(e);
+    if (!errorMsg.includes('net::ERR_FAILED') && !errorMsg.includes('fetch')) {
+      console.warn('[EmailQueueWorker] Erro ao marcar como enviado:', errorMsg);
+    }
+  }
 }
 
 async function markAsFailed(id: string, errMsg: string) {
-  const { error } = await supabase
-    .from('email_queue')
-    .update({ status: 'failed', error: errMsg })
-    .eq('id', id);
-  if (error) throw error;
+  try {
+    const { error } = await supabase
+      .from('email_queue')
+      .update({ status: 'failed', error: errMsg })
+      .eq('id', id);
+    if (error) throw error;
+  } catch (e) {
+    // Silenciar erros de rede
+    const errorMsg = (e as any)?.message || String(e);
+    if (!errorMsg.includes('net::ERR_FAILED') && !errorMsg.includes('fetch')) {
+      console.warn('[EmailQueueWorker] Erro ao marcar como falhado:', errorMsg);
+    }
+  }
 }
 
 async function processOnce() {

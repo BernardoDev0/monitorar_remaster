@@ -3,9 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>Dashboard - Sistema de Monitoramento</title>
     <meta name="description" content="Dashboard profissional para monitoramento de performance da equipe" />
     <meta name="author" content="Lovable" />
+    
+    <!-- Preload crítico para evitar FOUC e melhorar carregamento -->
+    <link rel="preconnect" href="https://xcdlujjyyirlzykfzhkm.supabase.co" />
+    <link rel="dns-prefetch" href="https://xcdlujjyyirlzykfzhkm.supabase.co" />
 
     <meta property="og:title" content="b84c91ae-d671-488d-8dba-8d5a4dc0fdea" />
     <meta property="og:description" content="Lovable Generated Project" />
@@ -19,6 +24,46 @@
 
   <body>
     <div id="root"></div>
+    
+    <!-- Script de verificação de compatibilidade (executa antes do React) -->
+    <script src="/browser-check.js"></script>
+    
+    <!-- Fallback para navegadores sem suporte a modules -->
+    <script nomodule>
+      document.getElementById('root').innerHTML = `
+        <div style="
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: system-ui, -apple-system, sans-serif;
+          background: #0f172a;
+          color: #f1f5f9;
+          padding: 2rem;
+        ">
+          <div style="
+            max-width: 400px;
+            text-align: center;
+            background: #1e293b;
+            padding: 2rem;
+            border-radius: 8px;
+            border: 1px solid #334155;
+          ">
+            <h1 style="margin: 0 0 1rem 0; color: #f59e0b;">Navegador Muito Antigo</h1>
+            <p style="margin: 0 0 1.5rem 0; color: #94a3b8;">
+              Seu navegador não suporta JavaScript moderno necessário para esta aplicação.
+            </p>
+            <p style="margin: 0 0 1.5rem 0; color: #94a3b8;">
+              Por favor, atualize para uma versão mais recente:
+            </p>
+            <div style="color: #94a3b8; font-size: 0.875rem;">
+              Chrome 60+ • Firefox 55+ • Safari 12+ • Edge 79+
+            </div>
+          </div>
+        </div>
+      `;
+    </script>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
