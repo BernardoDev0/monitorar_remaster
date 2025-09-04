@@ -73,14 +73,38 @@ export class ExportService {
             Pontos: entry.points || 0,
             Observações: entry.observations || ''
           }));
+          
+          // Calcular total de pontos
+          const totalPontos = exportData.reduce((sum, entry) => sum + entry.Pontos, 0);
+          
+          // Meta mensal: 10500 para Matheus, 9500 para os outros
+          const metaMensal = employee.real_name === 'Matheus' ? 10500 : 9500;
+          const restanteMensal = Math.max(0, metaMensal - totalPontos);
+          
+          // Adicionar linha de Total
+          exportData.push({
+            Data: 'Total',
+            Refinaria: '',
+            Pontos: totalPontos,
+            Observações: `Restante mensal: ${restanteMensal}`
+          });
         } else {
           // Se não tem dados, criar arquivo com uma linha indicando
-          exportData = [{
-            Data: format(new Date(), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR }),
-            Refinaria: '',
-            Pontos: 0,
-            Observações: 'Nenhum registro encontrado'
-          }];
+          const metaMensal = employee.real_name === 'Matheus' ? 10500 : 9500;
+          exportData = [
+            {
+              Data: format(new Date(), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR }),
+              Refinaria: '',
+              Pontos: 0,
+              Observações: 'Nenhum registro encontrado'
+            },
+            {
+              Data: 'Total',
+              Refinaria: '',
+              Pontos: 0,
+              Observações: `Restante mensal: ${metaMensal}`
+            }
+          ];
         }
 
         // Criar workbook

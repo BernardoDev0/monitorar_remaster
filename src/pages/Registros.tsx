@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -255,6 +255,45 @@ export default function Registros() {
   const totalPoints = filteredRecords.reduce((sum, record) => sum + record.points, 0);
   const completedRecords = filteredRecords.filter(r => r.status === "completed").length;
 
+  // Agrupar registros por mês para somatórios
+  const recordsByMonth = filteredRecords.reduce((acc, record) => {
+    const [day, month, year] = record.date.split('/');
+    const monthKey = `${month}/${year}`;
+    const monthName = new Date(parseInt(year), parseInt(month) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    
+    if (!acc[monthKey]) {
+      acc[monthKey] = {
+        name: monthName,
+        records: [],
+        total: 0
+      };
+    }
+    
+    acc[monthKey].records.push(record);
+    acc[monthKey].total += record.points;
+    return acc;
+  }, {} as Record<string, { name: string; records: EntryRecord[]; total: number }>);
+
+  // Ordenar meses por data (mais recente primeiro)
+  const sortedMonths = Object.entries(recordsByMonth).sort(([a], [b]) => {
+    const [monthA, yearA] = a.split('/').map(Number);
+    const [monthB, yearB] = b.split('/').map(Number);
+    if (yearA !== yearB) return yearB - yearA;
+    return monthB - monthA;
+  });
+
+  // Cores para diferentes meses
+  const monthColors = [
+    'bg-blue-500/10 border-blue-500/30 text-blue-400',
+    'bg-green-500/10 border-green-500/30 text-green-400',
+    'bg-purple-500/10 border-purple-500/30 text-purple-400',
+    'bg-orange-500/10 border-orange-500/30 text-orange-400',
+    'bg-pink-500/10 border-pink-500/30 text-pink-400',
+    'bg-cyan-500/10 border-cyan-500/30 text-cyan-400',
+    'bg-yellow-500/10 border-yellow-500/30 text-yellow-400',
+    'bg-red-500/10 border-red-500/30 text-red-400'
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
@@ -439,7 +478,7 @@ export default function Registros() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredRecords.map((record) => (
+                [...filteredRecords.map((record) => (
                   <TableRow key={record.id} className="border-border hover:bg-secondary/10">
                     <TableCell className="text-foreground">{record.date}</TableCell>
                     <TableCell className="text-muted-foreground">{record.time}</TableCell>
@@ -454,18 +493,27 @@ export default function Registros() {
                     <TableCell>{getStatusBadge(record.status)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-dashboard-primary/20" onClick={() => openEdit(record)}>
-                          <Edit className="h-4 w-4 text-dashboard-primary" />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEdit(record)}
+                          className="h-8 w-8 p-0 text-dashboard-info hover:text-dashboard-info hover:bg-dashboard-info/20"
+                        >
+                          <Edit className="h-3 w-3" />
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-dashboard-danger/20">
-                              <Trash2 className="h-4 w-4 text-dashboard-danger" />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/20"
+                            >
+                              <Trash2 className="h-3 w-3" />
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                              <AlertDialogTitle>Excluir registro</AlertDialogTitle>
                               <AlertDialogDescription>
                                 Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.
                               </AlertDialogDescription>
@@ -479,7 +527,21 @@ export default function Registros() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
+                )),
+                // Linha de Total como no Excel
+                filteredRecords.length > 0 && (
+                  <TableRow key="total-row" className="bg-blue-500/10 border-blue-500/30 font-bold">
+                    <TableCell className="text-blue-400 font-bold">Total</TableCell>
+                    <TableCell></TableCell>
+                    <TableCell></TableCell>
+                    <TableCell></TableCell>
+                    <TableCell className="font-mono text-blue-400 font-bold">
+                      {totalPoints.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-blue-400">Restante mensal: 0</TableCell>
+                    <TableCell colSpan={2}></TableCell>
+                  </TableRow>
+                )]
               )}
             </TableBody>
           </Table>
