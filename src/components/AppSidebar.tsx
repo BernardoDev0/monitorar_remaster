@@ -41,12 +41,12 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className="bg-card border-border overflow-hidden"
+      className="bg-card border-border overflow-hidden gpu-accelerated contain-layout"
       collapsible="icon"
     >
       <SidebarHeader className="p-2 border-b border-border">
-        <div className="flex items-center gap-1">
-          <div className="p-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20">
+        <div className="flex items-center gap-1 gpu-accelerated">
+          <div className="p-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 smooth-transition">
             <TrendingUp className="h-5 w-5 text-white" />
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
@@ -76,7 +76,7 @@ export function AppSidebar() {
                           ? 'bg-gradient-primary text-primary-foreground shadow-glow' 
                           : 'hover:bg-secondary/50 text-foreground hover:text-dashboard-primary'
                         }
-                        transition-colors h-12
+                        smooth-transition h-12 gpu-accelerated
                       `}
                     >
                       <Icon className="h-5 w-5" />

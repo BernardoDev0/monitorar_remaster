@@ -147,16 +147,16 @@ export default {
 				}
 			},
 			animation: {
-				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out',
-				'fade-in': 'fade-in 0.3s ease-out',
-				'fade-out': 'fade-out 0.3s ease-out',
-				'scale-in': 'scale-in 0.2s ease-out',
-				'scale-out': 'scale-out 0.2s ease-out',
-				'slide-in-right': 'slide-in-right 0.3s ease-out',
-				'slide-out-right': 'slide-out-right 0.3s ease-out',
-				'enter': 'fade-in 0.3s ease-out, scale-in 0.2s ease-out',
-				'exit': 'fade-out 0.3s ease-out, scale-out 0.2s ease-out'
+				'accordion-down': 'accordion-down 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+				'accordion-up': 'accordion-up 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+				'fade-in': 'fade-in 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+				'fade-out': 'fade-out 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+				'scale-in': 'scale-in 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+				'scale-out': 'scale-out 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+				'slide-in-right': 'slide-in-right 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+				'slide-out-right': 'slide-out-right 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+				'enter': 'fade-in 0.2s cubic-bezier(0.4, 0, 0.2, 1), scale-in 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+				'exit': 'fade-out 0.2s cubic-bezier(0.4, 0, 0.2, 1), scale-out 0.15s cubic-bezier(0.4, 0, 0.2, 1)'
 			}
 		}
 	},

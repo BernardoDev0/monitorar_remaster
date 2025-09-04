@@ -136,10 +136,45 @@ All colors MUST be HSL.
 
 @layer utilities {
   .hover-scale {
-    @apply transition-transform duration-200 hover:scale-105;
+    @apply transition-transform duration-200 ease-out will-change-transform hover:scale-105;
+    transform: translateZ(0);
   }
   
   .story-link {
-    @apply relative inline-block after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-0 after:left-0 after:bg-primary after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left;
+    @apply relative inline-block after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-0 after:left-0 after:bg-primary after:origin-bottom-right after:transition-transform after:duration-300 after:ease-out hover:after:scale-x-100 hover:after:origin-bottom-left;
+    will-change: transform;
+    transform: translateZ(0);
+  }
+  
+  /* Performance optimized animation utilities */
+  .gpu-accelerated {
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+  }
+  
+  .smooth-transition {
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, opacity;
+  }
+  
+  .contain-layout {
+    contain: layout style paint;
+  }
+  
+  .backface-hidden {
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
+  
+  /* Sidebar specific optimizations */
+  .sidebar-optimized {
+    backface-visibility: hidden;
+    perspective: 1000px;
+    transform: translateZ(0);
+    will-change: width, left, right;
+  }
+  
+  .sidebar-smooth {
+    transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 }
