@@ -1,7 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Employee, Entry } from './EmployeeService';
 import { CalculationsService } from './CalculationsService';
+import { formatDateISO } from '@/lib/date-utils';
 import { ExcelProcessorService } from './ExcelProcessorService';
+import { EMPLOYEE_NAMES, TEAM_MONTHLY_GOAL, POINT_VALUE } from '@/lib/constants';
+import { Logger, getEmployeeColor, calculateTotalPoints } from '@/lib/shared-utils';
 
 export interface ChartData {
   weeklyData: any[];
@@ -31,12 +34,6 @@ export interface GeneralStats {
  * Responsável por abstrair queries complexas e fornecer dados estruturados
  */
 export class DataService {
-  private static readonly EMPLOYEE_COLORS = {
-    'Rodrigo': '#8b5cf6',
-    'Maurício': '#f59e0b', 
-    'Matheus': '#10b981',
-    'Wesley': '#ef4444'
-  };
 
   /**
    * Busca todos os funcionários com cache
@@ -48,7 +45,7 @@ export class DataService {
       .order('real_name');
 
     if (error) {
-      console.error('Erro ao buscar funcionários:', error);
+      Logger.error('Erro ao buscar funcionários', error);
       return [];
     }
 
@@ -75,13 +72,7 @@ export class DataService {
     if (filters?.startDate) {
       query = query.gte('date', filters.startDate);
     }
-    if (filters?.endDate) {
-      // Usar limite superior exclusivo: end + 1 dia
-      const endExclusive = new Date(`${filters.endDate}T00:00:00Z`);
-      endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
-      const endExclusiveStr = endExclusive.toISOString().split('T')[0];
-      query = query.lt('date', endExclusiveStr);
-    }
+
     if (filters?.limit) {
       query = query.limit(filters.limit);
     }
@@ -89,7 +80,7 @@ export class DataService {
     const { data, error } = await query;
     
     if (error) {
-      console.error('Erro ao buscar entradas:', error);
+      Logger.error('Erro ao buscar entradas', error);
       return [];
     }
 
@@ -107,7 +98,7 @@ export class DataService {
     // Tornar limite superior exclusivo: end + 1 dia
     const endExclusive = new Date(`${endDate}T00:00:00Z`);
     endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
-    const endExclusiveStr = endExclusive.toISOString().split('T')[0];
+    const endExclusiveStr = formatDateISO(endExclusive);
 
     const { data, error } = await supabase
       .from('entry')
@@ -117,11 +108,15 @@ export class DataService {
       .lt('date', endExclusiveStr);
 
     if (error) {
-      console.error('Erro ao calcular pontos:', error);
+      Logger.error('Erro ao calcular pontos', error);
       return 0;
     }
 
-    return data?.reduce((sum, entry) => sum + (entry.points || 0), 0) || 0;
+    if (!data) {
+      return 0;
+    }
+
+    return calculateTotalPoints(data) || 0;
   }
 
   /**
@@ -185,7 +180,7 @@ export class DataService {
 
       // Índice por chave estável MM/YYYY gerada pelo ExcelProcessorService
       const byKey = new Map<string, any>(localData.map((row: any) => [row.key || row.name, row]));
-      const employeeNames = Object.keys(this.EMPLOYEE_COLORS);
+      const employeeNames = EMPLOYEE_NAMES;
 
       const merged = monthsToShow.map(({ name, key, start, end }) => {
         const base: any = { name, key, start, end };
@@ -211,10 +206,9 @@ export class DataService {
     const currentCompanyMonth = currentCycleEnd.getMonth(); // 0-based (mês de término do ciclo)
     const currentYear = currentCycleEnd.getFullYear();
     
-    console.log('🔍 DEBUG DataService (PADRONIZADO):');
-    console.log('🎯 Ciclo atual da empresa:', currentMonthDates);
-    console.log('🎯 Mês atual da empresa (0-based, mês de término):', currentCompanyMonth);
-    console.log('🎯 Nome do mês atual da empresa:', CalculationsService.getMonthNamePT(currentCompanyMonth + 1));
+    Logger.debug('Ciclo atual da empresa', currentMonthDates);
+    Logger.debug('Mês atual da empresa (0-based, mês de término)', currentCompanyMonth);
+    Logger.debug('Nome do mês atual da empresa', CalculationsService.getMonthNamePT(currentCompanyMonth + 1));
     
     // Mostrar últimos 7 meses da empresa (incluindo o atual)
     const monthsToShow = [] as { monthIndex: number; yearForMonth: number }[];
@@ -239,8 +233,8 @@ export class DataService {
       
       const monthData: any = { name: displayMonthName, key, start: monthDates.start, end: monthDates.end };
       
-      console.log(`📅 Processando mês: ${displayMonthName} (${monthIndex + 1}/${yearForMonth})`);
-      console.log(`📅 Período: ${monthDates.start} até ${monthDates.end}`);
+      Logger.debug(`Processando mês: ${displayMonthName} (${monthIndex + 1}/${yearForMonth})`);
+      Logger.debug(`Período: ${monthDates.start} até ${monthDates.end}`);
       
       for (const employee of employees) {
         const points = await this.getEmployeePoints(
@@ -278,7 +272,7 @@ export class DataService {
       teamData.push({
         name: employee.real_name,
         value: points,
-        color: this.EMPLOYEE_COLORS[employee.real_name] || '#6b7280'
+        color: getEmployeeColor(employee.real_name)
       });
     }
 
@@ -323,7 +317,7 @@ export class DataService {
     }
 
     // Selecionar o mês mais recente com dados (total de pontos > 0)
-    const employeeNames = Object.keys(this.EMPLOYEE_COLORS);
+    const employeeNames = EMPLOYEE_NAMES;
     const hasPoints = (row: any) => employeeNames.some(n => (Number(row[n] || 0)) > 0);
     let current = monthly[monthly.length - 1];
     for (let i = monthly.length - 1; i >= 0; i--) {
@@ -340,17 +334,18 @@ export class DataService {
     let employeeCountForAverage = 0;
 
     for (const name of employeeNames) {
-      if (name === 'Rodrigo') continue; // excluir freelancer dos totais
       const points = Number(current[name] || 0);
-      totalPoints += points;
+      
+      // Excluir freelancer dos totais
+      if (name !== 'Rodrigo' as const) {
+        totalPoints += points;
 
-      if (points > bestPoints) {
-        bestPoints = points;
-        bestPerformer = name;
-      }
+        if (points > bestPoints) {
+          bestPoints = points;
+          bestPerformer = name;
+        }
 
-      // Para média: excluir Rodrigo (freelancer)
-      if (name !== 'Rodrigo') {
+        // Para média: excluir Rodrigo (freelancer)
         totalPointsForAverage += points;
         employeeCountForAverage++;
       }
@@ -363,12 +358,11 @@ export class DataService {
     const avgTeam = employeeCountForAverage > 0 ? 
       Math.round(totalPointsForAverage / employeeCountForAverage) : 0;
 
-    const totalGoalTeam = 29500; // Meta mensal da equipe
+    const totalGoalTeam = TEAM_MONTHLY_GOAL; // Meta mensal da equipe
     const progressPercentage = totalGoalTeam > 0 ? 
       Math.round(((totalPoints / totalGoalTeam) * 100) * 10) / 10 : 0;
 
     // Valor por ponto (R$)
-    const POINT_VALUE = 3.45;
     // Faturamento total: soma de todos os meses (todos os colaboradores)
     const totalPointsAllMonths = monthly.reduce((acc, row) => {
       let s = 0;
@@ -455,7 +449,6 @@ export class DataService {
       ? Math.round(((totalPoints / totalMonthlyGoalTeam) * 100) * 10) / 10
       : 0;
 
-    const POINT_VALUE = 3.45;
     const totalRevenue = totalPoints * POINT_VALUE; // faturamento do mês atual (ciclo)
 
     const weekRange = `${monthDates.start} ~ ${monthDates.end}`; // reutilizamos o campo para exibir o intervalo do mês
@@ -476,10 +469,4 @@ export class DataService {
     };
   }
 
-  /**
-   * Cor específica para cada funcionário
-   */
-  static getEmployeeColor(employeeName: string): string {
-    return this.EMPLOYEE_COLORS[employeeName] || '#6b7280';
-  }
 }

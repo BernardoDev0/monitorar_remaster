@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Line, LineChart, Bar, BarChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
+import { useLoading, CardLoading } from '@/components/ui/loading-state';
 
 interface MonthlyData {
   labels: string[];
@@ -61,7 +62,7 @@ export default function EmployeeDashboard({ employeeId, monthlyData, weeklyData 
   const [selectedWeek, setSelectedWeek] = useState('');
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { loading, withLoading } = useLoading(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const { toast } = useToast();
 
@@ -81,31 +82,30 @@ export default function EmployeeDashboard({ employeeId, monthlyData, weeklyData 
 
   // Fetch history entries
   const fetchHistory = async (page: number, week?: string) => {
-    setLoading(true);
-    try {
-      let url = `/api/entries?page=${page}&employee_id=${employeeId}`;
-      if (week && week !== '') {
-        url += `&week=${week}`;
-      }
+    await withLoading(async () => {
+      try {
+        let url = `/api/entries?page=${page}&employee_id=${employeeId}`;
+        if (week && week !== '') {
+          url += `&week=${week}`;
+        }
 
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      if (data.entries) {
-        setHistoryEntries(data.entries);
-        setCurrentPage(page);
-        setPagination(data.pagination);
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.entries) {
+          setHistoryEntries(data.entries);
+          setCurrentPage(page);
+          setPagination(data.pagination);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar histórico:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar o histórico.",
+          variant: "destructive",
+        });
       }
-    } catch (error) {
-      console.error('Erro ao buscar histórico:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar o histórico.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   // Handle week filter change
@@ -263,7 +263,7 @@ export default function EmployeeDashboard({ employeeId, monthlyData, weeklyData 
                   {loading ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center">
-                        Carregando...
+                        <CardLoading />
                       </TableCell>
                     </TableRow>
                   ) : historyEntries.length > 0 ? (

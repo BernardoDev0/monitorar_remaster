@@ -17,12 +17,7 @@ interface MonthlyChartProps {
   viewMode: "team" | "individual";
 }
 
-const employeeColors = {
-  'Rodrigo': '#8b5cf6',
-  'Maurício': '#f59e0b', 
-  'Matheus': '#10b981',
-  'Wesley': '#ef4444'
-};
+import { EMPLOYEE_COLORS } from "@/lib/constants";
 
 export function MonthlyChart({ data, hiddenEmployees, viewMode }: MonthlyChartProps) {
   if (viewMode === "individual") {
@@ -61,7 +56,7 @@ export function MonthlyChart({ data, hiddenEmployees, viewMode }: MonthlyChartPr
             wrapperStyle={{ outline: 'none' }}
           />
           
-          {Object.entries(employeeColors).map(([employee, color]) => (
+          {Object.entries(EMPLOYEE_COLORS).map(([employee, color]) => (
             !hiddenEmployees.has(employee) && (
               <Bar 
                 key={employee} 
@@ -78,7 +73,7 @@ export function MonthlyChart({ data, hiddenEmployees, viewMode }: MonthlyChartPr
   } else {
     // Modo equipe: gráfico de linha com total
     const teamProgressData = data.map(month => {
-      const totalPoints = Object.keys(employeeColors).reduce((sum, employee) => {
+      const totalPoints = Object.keys(EMPLOYEE_COLORS).reduce((sum, employee) => {
         if (!hiddenEmployees.has(employee)) {
           return sum + (month[employee] || 0);
         }

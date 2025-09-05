@@ -229,6 +229,12 @@ const Sidebar = React.forwardRef<
               ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4))]"
               : "group-data-[collapsible=icon]:w-[--sidebar-width-icon]"
           )}
+          style={{
+            contain: 'layout style paint',
+            willChange: 'width',
+            transform: 'translateZ(0)',
+            backfaceVisibility: 'hidden'
+          }}
         />
         <div
           className={cn(
@@ -243,13 +249,22 @@ const Sidebar = React.forwardRef<
             className
           )}
           style={{
-            contain: 'layout style paint'
+            contain: 'layout style paint',
+            willChange: 'left, right, width',
+            transform: 'translateZ(0)',
+            backfaceVisibility: 'hidden',
+            perspective: '1000px'
           }}
           {...props}
         >
           <div
             data-sidebar="sidebar"
             className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
+            style={{
+              contain: 'layout style paint',
+              transform: 'translateZ(0)',
+              backfaceVisibility: 'hidden'
+            }}
           >
             {children}
           </div>
@@ -444,6 +459,11 @@ const SidebarGroupLabel = React.forwardRef<
         "group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0",
         className
       )}
+      style={{
+        willChange: 'margin, opacity',
+        transform: 'translateZ(0)',
+        backfaceVisibility: 'hidden'
+      }}
       {...props}
     />
   )
@@ -564,6 +584,11 @@ const SidebarMenuButton = React.forwardRef<
         data-size={size}
         data-active={isActive}
         className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
+        style={{
+          willChange: 'background-color, color, transform',
+          transform: 'translateZ(0)',
+          backfaceVisibility: 'hidden'
+        }}
         {...props}
       />
     )
@@ -618,6 +643,11 @@ const SidebarMenuAction = React.forwardRef<
           "group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 data-[state=open]:opacity-100 peer-data-[active=true]/menu-button:text-sidebar-accent-foreground md:opacity-0",
         className
       )}
+      style={{
+        willChange: 'background-color, color, opacity, transform',
+        transform: 'translateZ(0)',
+        backfaceVisibility: 'hidden'
+      }}
       {...props}
     />
   )

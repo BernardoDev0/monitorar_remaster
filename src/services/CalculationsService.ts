@@ -1,6 +1,8 @@
 // Portando lógica do utils/calculations.py para TypeScript
 // Mantendo a lógica original de semanas 26→25
 
+import { formatDateISO, formatDateBR, generateMonthKey } from '@/lib/date-utils';
+
 export interface WeekDates {
   start: string;
   end: string;
@@ -94,19 +96,36 @@ export class CalculationsService {
       }
     }
 
-    // Calcular início do ciclo (dia 26)
+    // Calcular início e fim do ciclo
     const cycleStart = new Date(cycleYear, cycleMonth - 1, 26);
+    const cycleEnd = new Date(cycleYear, cycleMonth, 25); // Mês seguinte, dia 25
     
-    // Cada semana tem 7 dias, começando do dia 26
-    const weekStartDate = new Date(cycleStart);
-    weekStartDate.setDate(cycleStart.getDate() + (weekNum - 1) * 7);
+    // Calcular total de dias no ciclo
+    const totalDays = Math.floor((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
+    // Distribuir em 5 semanas de forma equilibrada
+    const daysPerWeek = Math.floor(totalDays / 5);
+    const extraDays = totalDays % 5;
+    
+    // Calcular início da semana solicitada
+    let weekStartDate = new Date(cycleStart);
+    let daysToAdd = 0;
+    
+    for (let i = 1; i < weekNum; i++) {
+      const weekDays = daysPerWeek + (i <= extraDays ? 1 : 0);
+      daysToAdd += weekDays;
+    }
+    
+    weekStartDate.setDate(cycleStart.getDate() + daysToAdd);
+    
+    // Calcular fim da semana
+    const weekDays = daysPerWeek + (weekNum <= extraDays ? 1 : 0);
     const weekEndDate = new Date(weekStartDate);
-    weekEndDate.setDate(weekStartDate.getDate() + 6);
+    weekEndDate.setDate(weekStartDate.getDate() + weekDays - 1);
 
     return {
-      start: weekStartDate.toISOString().split('T')[0],
-      end: weekEndDate.toISOString().split('T')[0]
+      start: formatDateISO(weekStartDate),
+      end: formatDateISO(weekEndDate)
     };
   }
 
@@ -134,12 +153,34 @@ export class CalculationsService {
       }
     }
 
-    // Início do ciclo sempre no dia 26
+    // Calcular início e fim do ciclo
     const cycleStart = new Date(cycleYear, cycleMonth - 1, 26);
-    const daysDiff = Math.floor((today.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24));
+    const cycleEnd = new Date(cycleYear, cycleMonth, 25); // Mês seguinte, dia 25
     
-    // Calcular semana (1-5) - cada semana tem 7 dias
-    const week = Math.floor(daysDiff / 7) + 1;
+    // Calcular total de dias no ciclo
+    const totalDays = Math.floor((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Calcular dias decorridos desde o início
+    const daysElapsed = Math.floor((today.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Distribuir em 5 semanas de forma equilibrada
+    const daysPerWeek = Math.floor(totalDays / 5);
+    const extraDays = totalDays % 5;
+    
+    // Calcular semana atual
+    let week = 1;
+    let daysCount = 0;
+    
+    for (let i = 1; i <= 5; i++) {
+      const weekDays = daysPerWeek + (i <= extraDays ? 1 : 0);
+      daysCount += weekDays;
+      
+      if (daysElapsed <= daysCount) {
+        week = i;
+        break;
+      }
+    }
+    
     return Math.min(Math.max(week, 1), 5);
   }
 
@@ -177,8 +218,8 @@ export class CalculationsService {
     const cycleEnd = new Date(endYear, endMonth - 1, 25);
 
     return {
-      start: cycleStart.toISOString().split('T')[0],
-      end: cycleEnd.toISOString().split('T')[0]
+      start: formatDateISO(cycleStart),
+      end: formatDateISO(cycleEnd)
     };
   }
 
@@ -206,11 +247,34 @@ export class CalculationsService {
       }
     }
 
+    // Calcular início e fim do ciclo
     const cycleStart = new Date(cycleYear, cycleMonth - 1, 26);
-    const daysDiff = Math.floor((date.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24));
+    const cycleEnd = new Date(cycleYear, cycleMonth, 25); // Mês seguinte, dia 25
     
-    // Calcular qual semana (1-5 dentro do ciclo mensal)
-    const week = Math.floor(daysDiff / 7) + 1;
+    // Calcular total de dias no ciclo
+    const totalDays = Math.floor((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Calcular dias decorridos desde o início
+    const daysElapsed = Math.floor((date.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Distribuir em 5 semanas de forma equilibrada
+    const daysPerWeek = Math.floor(totalDays / 5);
+    const extraDays = totalDays % 5;
+    
+    // Calcular semana atual
+    let week = 1;
+    let daysCount = 0;
+    
+    for (let i = 1; i <= 5; i++) {
+      const weekDays = daysPerWeek + (i <= extraDays ? 1 : 0);
+      daysCount += weekDays;
+      
+      if (daysElapsed <= daysCount) {
+        week = i;
+        break;
+      }
+    }
+    
     return Math.min(Math.max(week, 1), 5);
   }
 
@@ -258,11 +322,16 @@ export class CalculationsService {
 
   // Formatação utilitária
   static formatDateBR(dateStr: string): string {
-    const date = new Date(dateStr);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
+    return formatDateBR(dateStr);
+  }
+
+  static formatDateForKey(date: Date): string {
+    return generateMonthKey(date);
+  }
+
+  // Método interno para formatação - usando date-utils
+  private static formatDateInternal(date: Date): string {
+    return formatDateBR(date.toISOString());
   }
 
   static formatTimestampBR(dateStr: string): { date: string; time: string } {

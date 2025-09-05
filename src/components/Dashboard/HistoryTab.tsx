@@ -10,6 +10,7 @@ import { EmployeeService, Entry } from "@/services/EmployeeService";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalculationsService } from "@/services/CalculationsService";
+import { useLoading, CardLoading } from "@/components/ui/loading-state";
 
 interface HistoryTabProps {
   employeeId: number;
@@ -17,7 +18,7 @@ interface HistoryTabProps {
 
 export const HistoryTab = ({ employeeId }: HistoryTabProps) => {
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { loading, withLoading } = useLoading(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -27,8 +28,7 @@ export const HistoryTab = ({ employeeId }: HistoryTabProps) => {
   const ITEMS_PER_PAGE = 10;
 
   const loadEntries = async (reset = false) => {
-    try {
-      setLoading(true);
+    await withLoading(async () => {
       const currentPage = reset ? 0 : page;
       
       let dateFilter: { start?: string; end?: string } | undefined;
@@ -54,12 +54,7 @@ export const HistoryTab = ({ employeeId }: HistoryTabProps) => {
       setHasMore(newEntries.length === ITEMS_PER_PAGE);
       if (reset) setPage(0);
       else setPage(prev => prev + 1);
-      
-    } catch (error) {
-      console.error('Erro ao carregar histórico:', error);
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   useEffect(() => {
@@ -132,12 +127,7 @@ export const HistoryTab = ({ employeeId }: HistoryTabProps) => {
       
       <CardContent>
         {loading && entries.length === 0 ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Carregando histórico...</p>
-            </div>
-          </div>
+          <CardLoading />
         ) : filteredEntries.length === 0 ? (
           <div className="text-center py-8">
             <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />

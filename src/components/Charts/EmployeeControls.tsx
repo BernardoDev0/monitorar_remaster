@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, Users, User } from "lucide-react";
+import { EMPLOYEE_COLORS } from "@/lib/constants";
 
 interface EmployeeControlsProps {
   viewMode: "team" | "individual";
@@ -10,12 +11,7 @@ interface EmployeeControlsProps {
   selectedChart: string;
 }
 
-const employeeColors = {
-  'Rodrigo': '#8b5cf6',
-  'Maurício': '#f59e0b', 
-  'Matheus': '#10b981',
-  'Wesley': '#ef4444'
-};
+// Usando constantes centralizadas
 
 export function EmployeeControls({ 
   viewMode, 
@@ -26,7 +22,7 @@ export function EmployeeControls({
 }: EmployeeControlsProps) {
   return (
     <div className="space-y-2">
-      {Object.entries(employeeColors).map(([employee, color]) => (
+      {Object.entries(EMPLOYEE_COLORS).map(([employee, color]) => (
         <Button
           key={employee}
           variant="ghost"

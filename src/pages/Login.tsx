@@ -6,10 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { EmployeeService } from "@/services/EmployeeService";
+import { useLoading, InlineLoading } from "@/components/ui/loading-state";
 
 const Login = () => {
   const [accessKey, setAccessKey] = useState("");
-  const [loading, setLoading] = useState(false);
+  const { loading, withLoading } = useLoading(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -25,9 +26,7 @@ const Login = () => {
       return;
     }
 
-    try {
-      setLoading(true);
-      
+    await withLoading(async () => {
       // Verificar se é CEO primeiro
       if (accessKey.trim().toLowerCase() === 'moni4242') {
         // Login do CEO
@@ -72,16 +71,7 @@ const Login = () => {
           variant: "destructive"
         });
       }
-    } catch (error) {
-      console.error('Erro no login:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível realizar o login. Tente novamente.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   return (
@@ -121,7 +111,11 @@ const Login = () => {
                 className="w-full bg-gradient-primary hover:opacity-90 text-white font-medium"
                 disabled={loading}
               >
-                {loading ? 'Autenticando...' : 'Entrar'}
+                {loading ? (
+                  <InlineLoading text="Autenticando..." size="sm" />
+                ) : (
+                  'Entrar'
+                )}
               </Button>
             </form>
           </CardContent>

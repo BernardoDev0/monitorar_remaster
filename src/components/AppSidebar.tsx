@@ -41,12 +41,12 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className="bg-card border-border overflow-hidden gpu-accelerated contain-layout"
+      className="bg-card border-border overflow-hidden sidebar-60fps"
       collapsible="icon"
     >
       <SidebarHeader className="p-2 border-b border-border">
-        <div className="flex items-center gap-1 gpu-accelerated">
-          <div className="p-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 smooth-transition">
+        <div className="flex items-center gap-1 sidebar-menu-optimized">
+          <div className="p-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 smooth-transition sidebar-menu-optimized">
             <TrendingUp className="h-5 w-5 text-white" />
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
@@ -76,7 +76,7 @@ export function AppSidebar() {
                           ? 'bg-gradient-primary text-primary-foreground shadow-glow' 
                           : 'hover:bg-secondary/50 text-foreground hover:text-dashboard-primary'
                         }
-                        smooth-transition h-12 gpu-accelerated
+                        smooth-transition h-12 sidebar-menu-optimized
                       `}
                     >
                       <Icon className="h-5 w-5" />
@@ -91,9 +91,9 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border p-3 group-data-[collapsible=icon]:px-1">
-        <div className="flex items-center justify-between gap-2 group-data-[collapsible=icon]:justify-center">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <div className="p-1.5 rounded-lg bg-white/10 border border-white/20">
+        <div className="flex items-center justify-between gap-2 group-data-[collapsible=icon]:justify-center sidebar-menu-optimized">
+          <div className="flex items-center gap-2 overflow-hidden sidebar-menu-optimized">
+            <div className="p-1.5 rounded-lg bg-white/10 border border-white/20 sidebar-menu-optimized">
               <UserCircle className="h-5 w-5 text-white" />
             </div>
             <div className="group-data-[collapsible=icon]:hidden">

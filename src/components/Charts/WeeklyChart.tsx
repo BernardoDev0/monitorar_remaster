@@ -14,12 +14,7 @@ interface WeeklyChartProps {
   hiddenEmployees: Set<string>;
 }
 
-const employeeColors = {
-  'Rodrigo': '#8b5cf6',
-  'Maurício': '#f59e0b', 
-  'Matheus': '#10b981',
-  'Wesley': '#ef4444'
-};
+import { EMPLOYEE_COLORS } from "@/lib/constants";
 
 export function WeeklyChart({ data, hiddenEmployees }: WeeklyChartProps) {
   return (
@@ -69,7 +64,7 @@ export function WeeklyChart({ data, hiddenEmployees }: WeeklyChartProps) {
           </g>
         )}
         
-        {Object.entries(employeeColors).map(([employee, color]) => (
+        {Object.entries(EMPLOYEE_COLORS).map(([employee, color]) => (
           !hiddenEmployees.has(employee) && (
             <Bar 
               key={employee} 

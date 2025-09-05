@@ -3,7 +3,8 @@ import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalculationsService } from './CalculationsService';
+import { EMPLOYEE_NAMES, MONTHLY_GOALS, POINT_VALUE, TEAM_MONTHLY_GOAL, EXPORT_CONFIG } from '@/lib/constants';
+import { Logger, getEmployeeColor } from '@/lib/shared-utils';
 
 interface ExportEntry {
   Data: string;
@@ -41,7 +42,7 @@ export class ExportService {
           employee_id
         `)
         .order('date', { ascending: false })
-        .limit(1000);
+        .limit(EXPORT_CONFIG.MAX_RECORDS);
 
       if (entriesError || !entries) {
         throw new Error('Erro ao buscar registros');
@@ -77,8 +78,8 @@ export class ExportService {
           // Calcular total de pontos
           const totalPontos = exportData.reduce((sum, entry) => sum + entry.Pontos, 0);
           
-          // Meta mensal: 10500 para Matheus, 9500 para os outros
-          const metaMensal = employee.real_name === 'Matheus' ? 10500 : 9500;
+          // Meta mensal baseada nas constantes centralizadas
+          const metaMensal = MONTHLY_GOALS[employee.real_name as keyof typeof MONTHLY_GOALS] || 9500;
           const restanteMensal = Math.max(0, metaMensal - totalPontos);
           
           // Adicionar linha de Total
@@ -90,7 +91,7 @@ export class ExportService {
           });
         } else {
           // Se não tem dados, criar arquivo com uma linha indicando
-          const metaMensal = employee.real_name === 'Matheus' ? 10500 : 9500;
+          const metaMensal = MONTHLY_GOALS[employee.real_name as keyof typeof MONTHLY_GOALS] || 9500;
           exportData = [
             {
               Data: format(new Date(), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR }),
@@ -121,7 +122,7 @@ export class ExportService {
         ws['!cols'] = colWidths;
 
         // Adicionar ao workbook
-        XLSX.utils.book_append_sheet(wb, ws, "Registros");
+        XLSX.utils.book_append_sheet(wb, ws, EXPORT_CONFIG.EXCEL_SHEET_NAME);
 
         // Converter para buffer (ArrayBuffer no browser, compatível com JSZip)
         const excelBuffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
@@ -137,267 +138,18 @@ export class ExportService {
       const url = window.URL.createObjectURL(zipBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `registros_funcionarios_${format(new Date(), 'yyyy-MM-dd')}.zip`;
+      link.download = `${EXPORT_CONFIG.ZIP_FILENAME_PREFIX}${format(new Date(), 'yyyy-MM-dd')}.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
     } catch (error) {
-      console.error('Erro ao exportar dados:', error);
+      Logger.error('Erro ao exportar dados', error);
       throw error;
     }
   }
 
-  /**
-   * Busca dados reais dos funcionários para os gráficos
-   * @deprecated Usar DataService.getChartData() em vez disso
-   */
-  static async getEmployeesChartData() {
-    try {
-      // Buscar funcionários
-      const { data: employees, error: employeesError } = await supabase
-        .from('employee')
-        .select('*')
-        .order('real_name');
 
-      if (employeesError) {
-        throw new Error('Erro ao buscar funcionários');
-      }
 
-      const chartData = {
-        weeklyData: [],
-        monthlyData: [],
-        employeeStats: {},
-        teamPerformance: []
-      };
-
-      if (!employees || employees.length === 0) {
-        return chartData;
-      }
-
-      // Gerar dados semanais usando lógica do ciclo 26→25
-      const weeklyData = [];
-      
-      // Determinar ciclo atual baseado no dia 26
-      const today = new Date();
-      const currentDay = today.getDate();
-      let cycleYear = today.getFullYear();
-      let cycleMonth = today.getMonth() + 1;
-
-      if (currentDay >= 26) {
-        // Já no próximo ciclo - manter mês atual
-        cycleMonth = today.getMonth() + 1;
-      } else {
-        // Ainda no ciclo anterior - ir para mês anterior
-        cycleMonth -= 1;
-        if (cycleMonth < 1) {
-          cycleMonth = 12;
-          cycleYear -= 1;
-        }
-      }
-
-      // Início do ciclo sempre no dia 26
-      const cycleStart = new Date(cycleYear, cycleMonth - 1, 26);
-      
-      // Gerar 5 semanas do ciclo
-      for (let week = 1; week <= 5; week++) {
-        const weekStart = new Date(cycleStart);
-        weekStart.setDate(cycleStart.getDate() + (week - 1) * 7);
-        
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-
-        const weekData = { name: `Semana ${week}` };
-        
-        for (const employee of employees) {
-          const { data: entries } = await supabase
-            .from('entry')
-            .select('points')
-            .eq('employee_id', employee.id)
-            .gte('date', weekStart.toISOString().split('T')[0])
-            .lte('date', weekEnd.toISOString().split('T')[0]);
-
-          const points = entries?.reduce((sum, entry) => sum + entry.points, 0) || 0;
-          weekData[employee.real_name] = points;
-        }
-        
-        weeklyData.push(weekData);
-      }
-
-      chartData.weeklyData = weeklyData;
-
-      // Gerar dados mensais usando CalculationsService (SEM DUPLICAÇÃO)
-      const monthlyData = [];
-      // Substitui array hardcoded por função centralizada
-      const months = Array.from({ length: 12 }, (_, i) => CalculationsService.getMonthNamePT(i + 1));
-      
-      // Usar CalculationsService para obter o ciclo atual (REMOVE DUPLICAÇÃO)
-      const currentMonthDates = CalculationsService.getMonthCycleDates();
-      
-      // Extrair mês do ciclo atual a partir das datas retornadas (usar mês de TÉRMINO)
-      const currentCycleEnd = new Date(currentMonthDates.end);
-      const currentCompanyMonth = currentCycleEnd.getMonth(); // 0-based
-      const currentYear = currentCycleEnd.getFullYear();
-      
-      // Mostrar últimos 7 meses da empresa (incluindo o atual)
-      const monthsToShow = [];
-      for (let i = 6; i >= 0; i--) {
-        let monthIndex = currentCompanyMonth - i;
-        let yearForMonth = currentYear;
-        
-        if (monthIndex < 0) {
-          monthIndex += 12;
-          yearForMonth -= 1;
-        }
-        
-        monthsToShow.push({ monthIndex, yearForMonth });
-      }
-      
-      for (const { monthIndex, yearForMonth } of monthsToShow) {
-        // USAR CalculationsService ao invés de reimplementar (REMOVE DUPLICAÇÃO)
-        const monthDates = CalculationsService.getMonthCycleDates(monthIndex + 1, yearForMonth);
-        
-        // Total de pontos do mês com dados por funcionário
-        const monthData = { name: months[monthIndex] };
-        
-        for (const employee of employees) {
-          const { data: employeeEntries } = await supabase
-            .from('entry')
-            .select('points')
-            .eq('employee_id', employee.id)
-            .gte('date', monthDates.start)
-            .lte('date', monthDates.end);
-
-          const points = employeeEntries?.reduce((sum, entry) => sum + entry.points, 0) || 0;
-          monthData[employee.real_name] = points;
-        }
-        
-        monthlyData.push(monthData);
-      }
-
-      chartData.monthlyData = monthlyData;
-
-      // Para cada funcionário, calcular estatísticas
-      for (const employee of employees) {
-        // Dados do mês atual (ciclo 26-25)
-        const today = new Date();
-        const currentDay = today.getDate();
-        let monthStart: Date;
-        let monthEnd: Date;
-
-        if (currentDay >= 26) {
-          monthStart = new Date(today.getFullYear(), today.getMonth(), 26);
-          monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 25);
-        } else {
-          monthStart = new Date(today.getFullYear(), today.getMonth() - 1, 26);
-          monthEnd = new Date(today.getFullYear(), today.getMonth(), 25);
-        }
-
-        const { data: monthlyEntries } = await supabase
-          .from('entry')
-          .select('points')
-          .eq('employee_id', employee.id)
-          .gte('date', monthStart.toISOString().split('T')[0])
-          .lte('date', monthEnd.toISOString().split('T')[0]);
-
-        const monthlyPoints = monthlyEntries?.reduce((sum, entry) => sum + entry.points, 0) || 0;
-
-        // Dados para gráfico de pizza (team performance)
-        chartData.teamPerformance.push({
-          name: employee.real_name,
-          value: monthlyPoints,
-          color: ExportService.getEmployeeColor(employee.real_name)
-        });
-      }
-
-      return chartData;
-      
-    } catch (error) {
-      console.error('Erro ao buscar dados dos gráficos:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Retorna cor específica para cada funcionário
-   */
-  static getEmployeeColor(employeeName: string): string {
-    const colorMap: Record<string, string> = {
-      'Rodrigo': '#8b5cf6',
-      'Maurício': '#f59e0b', 
-      'Matheus': '#10b981',
-      'Wesley': '#ef4444'
-    };
-    return colorMap[employeeName] || '#6b7280';
-  }
-
-  /**
-   * Calcula estatísticas gerais dos dados
-   * IMPORTANTE: Exclui Rodrigo das médias (funcionário freelancer)
-   * @deprecated Usar DataService.getGeneralStats() em vez disso
-   */
-  static async getGeneralStats() {
-    try {
-      const { data: employees } = await supabase
-        .from('employee')
-        .select('id, real_name, weekly_goal');
-
-      if (!employees) return null;
-
-      // PADRONIZAÇÃO: usar CalculationsService.getMonthCycleDates()
-      const monthDates = CalculationsService.getMonthCycleDates();
-
-      let bestPerformer = '';
-      let bestPoints = 0;
-      let totalPoints = 0;
-      let totalGoalTeam = 29500; // Meta mensal da equipe definida pelo usuário
-      
-      // Para média da equipe: excluir Rodrigo (funcionário freelancer)
-      let totalPointsForAverage = 0;
-      let employeeCountForAverage = 0;
-
-      for (const employee of employees) {
-          const { data: entries } = await supabase
-            .from('entry')
-            .select('points')
-            .eq('employee_id', employee.id)
-            .gte('date', monthDates.start)
-            .lte('date', monthDates.end);
-
-        const points = entries?.reduce((sum, entry) => sum + entry.points, 0) || 0;
-        totalPoints += points;
-
-        // Verificar melhor performer
-        if (points > bestPoints) {
-          bestPoints = points;
-          bestPerformer = employee.real_name;
-        }
-
-        // Para média: excluir Rodrigo
-        if (employee.real_name !== 'Rodrigo') {
-          totalPointsForAverage += points;
-          employeeCountForAverage++;
-        }
-      }
-
-      // Média da equipe sem Rodrigo
-      const avgTeam = employeeCountForAverage > 0 ? Math.round(totalPointsForAverage / employeeCountForAverage) : 0;
-      
-      // Progresso geral baseado na meta de 29.500
-      const progressPercentage = totalGoalTeam > 0 ? (totalPoints / totalGoalTeam * 100) : 0;
-
-      return {
-        bestPerformer,
-        bestPoints,
-        avgTeam, // Média sem Rodrigo
-        totalGoal: Math.round(totalGoalTeam / 1000 * 10) / 10, // 29.5K
-        progressPercentage: Math.round(progressPercentage * 10) / 10
-      };
-      
-    } catch (error) {
-      console.error('Erro ao calcular estatísticas:', error);
-      return null;
-    }
-  }
 }

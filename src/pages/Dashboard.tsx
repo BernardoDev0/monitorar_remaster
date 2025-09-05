@@ -14,6 +14,8 @@ import { EmployeeService, Employee } from "@/services/EmployeeService";
 import { CalculationsService } from "@/services/CalculationsService";
 import { HistoryTab } from "@/components/Dashboard/HistoryTab";
 import { MonthlyEvolutionTab } from "@/components/Dashboard/MonthlyEvolutionTab";
+import { PageLoading, useLoading } from "@/components/ui/loading-state";
+import { SelectField, InputField, TextareaField } from "@/components/ui/form-field";
 
 interface DashboardMetrics {
   todayPoints: number;
@@ -38,7 +40,7 @@ const Dashboard = () => {
     weeklyGoal: 2375,
     monthlyGoal: 9500
   });
-  const [loading, setLoading] = useState(true);
+  const { loading, startLoading, stopLoading, withLoading } = useLoading(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -48,9 +50,7 @@ const Dashboard = () => {
 
   // Carregar dados do funcionário e métricas
   const loadEmployeeData = async (employeeId: number) => {
-    try {
-      setLoading(true);
-      
+    await withLoading(async () => {
       // Buscar dados do funcionário
       const employee = await EmployeeService.getEmployeeById(employeeId);
       if (!employee) {
@@ -92,17 +92,7 @@ const Dashboard = () => {
         weeklyGoal,
         monthlyGoal
       });
-
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar os dados.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   useEffect(() => {
@@ -145,9 +135,7 @@ const Dashboard = () => {
       return;
     }
 
-    try {
-      setLoading(true);
-      
+    await withLoading(async () => {
       // Criar novo registro
       const newEntry = await EmployeeService.createEntry({
         employee_id: currentUser.id,
@@ -172,26 +160,15 @@ const Dashboard = () => {
       } else {
         throw new Error('Falha ao salvar registro');
       }
-    } catch (error) {
-      console.error('Erro ao registrar pontos:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível salvar o registro.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   if (loading || !currentUser) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando dados...</p>
-        </div>
-      </div>
+      <PageLoading 
+        title="Carregando Dashboard" 
+        description="Buscando dados do funcionário..." 
+      />
     );
   }
 
@@ -209,21 +186,19 @@ const Dashboard = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Label className="text-sm text-muted-foreground">Semana:</Label>
-                <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-                  <SelectTrigger className="w-32 bg-secondary border-border">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    <SelectItem value="1">Semana 1</SelectItem>
-                    <SelectItem value="2">Semana 2</SelectItem>
-                    <SelectItem value="3">Semana 3</SelectItem>
-                    <SelectItem value="4">Semana 4</SelectItem>
-                    <SelectItem value="5">Semana 5</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <SelectField
+                label="Semana:"
+                value={selectedWeek}
+                onChange={setSelectedWeek}
+                options={[
+                  { value: "1", label: "Semana 1" },
+                  { value: "2", label: "Semana 2" },
+                  { value: "3", label: "Semana 3" },
+                  { value: "4", label: "Semana 4" },
+                  { value: "5", label: "Semana 5" }
+                ]}
+                className="w-32"
+              />
               
               <Button 
                 variant="outline" 
@@ -339,47 +314,39 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleRegistrar} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="refinaria">Refinaria:</Label>
-                    <Select value={selectedRefinery} onValueChange={setSelectedRefinery}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a refinaria" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-card border-border">
-                        <SelectItem value="RPBC">RPBC</SelectItem>
-                        <SelectItem value="REVAP">REVAP</SelectItem>
-                        <SelectItem value="REPAR">REPAR</SelectItem>
-                        <SelectItem value="REFAP">REFAP</SelectItem>
-                        <SelectItem value="REMAN">REMAN</SelectItem>
-                        <SelectItem value="REDUC">REDUC</SelectItem>
-                        <SelectItem value="REGAP">REGAP</SelectItem>
-                        <SelectItem value="RELAN">RELAN</SelectItem>
-                        <SelectItem value="RNEST">RNEST</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <SelectField
+                    label="Refinaria:"
+                    value={selectedRefinery}
+                    onChange={setSelectedRefinery}
+                    placeholder="Selecione a refinaria"
+                    options={[
+                      { value: "RPBC", label: "RPBC" },
+                      { value: "REVAP", label: "REVAP" },
+                      { value: "REPAR", label: "REPAR" },
+                      { value: "REFAP", label: "REFAP" },
+                      { value: "REMAN", label: "REMAN" },
+                      { value: "REDUC", label: "REDUC" },
+                      { value: "REGAP", label: "REGAP" },
+                      { value: "RELAN", label: "RELAN" },
+                      { value: "RNEST", label: "RNEST" }
+                    ]}
+                  />
 
-                  <div className="space-y-2">
-                    <Label htmlFor="pontos">Pontos:</Label>
-                    <Input
-                      id="pontos"
-                      type="number"
-                      value={pontos}
-                      onChange={(e) => setPontos(e.target.value)}
-                      placeholder="Digite os pontos"
-                    />
-                  </div>
+                  <InputField
+                    label="Pontos:"
+                    type="number"
+                    placeholder="Digite os pontos"
+                    value={pontos}
+                    onChange={setPontos}
+                  />
 
-                  <div className="space-y-2">
-                    <Label htmlFor="observacoes">Observações:</Label>
-                    <Textarea
-                      id="observacoes"
-                      value={observacoes}
-                      onChange={(e) => setObservacoes(e.target.value)}
-                      placeholder="Digite suas observações"
-                      className="min-h-24"
-                    />
-                  </div>
+                  <TextareaField
+                    label="Observações:"
+                    placeholder="Digite suas observações"
+                    value={observacoes}
+                    onChange={setObservacoes}
+                    className="min-h-24"
+                  />
 
                   <Button 
                     type="submit" 

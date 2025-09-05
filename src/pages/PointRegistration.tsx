@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import emailjs from '@emailjs/browser';
 import { supabase } from '@/integrations/supabase/client';
+import { useLoading, InlineLoading } from '@/components/ui/loading-state';
+import { SelectField, InputField, TextareaField } from '@/components/ui/form-field';
 
 // Configurações do EmailJS (via Vite)
 const EMAILJS_SERVICE_ID = (import.meta as any).env?.VITE_EMAILJS_SERVICE_ID as string | undefined;
@@ -15,7 +17,7 @@ interface PointData {
 }
 
 const PointRegistration: React.FC = () => {
-  const [loading, setLoading] = useState(false);
+  const { loading, withLoading } = useLoading(false);
   const [message, setMessage] = useState('');
   const [form, setForm] = useState<PointData>({
     employee_name: 'Maurício',
@@ -92,10 +94,9 @@ const PointRegistration: React.FC = () => {
   };
 
   const registerPoint = async (pointData: PointData) => {
-    setLoading(true);
     setMessage('');
 
-    try {
+    await withLoading(async () => {
       // 1) Salvar ponto no banco (tabela entry já usada no app)
       const now = new Date();
       const iso = now.toISOString();
@@ -132,12 +133,7 @@ const PointRegistration: React.FC = () => {
           ? `✅ Ponto registrado e email enviado para ${pointData.employee_name}!`
           : `⚠️ Ponto registrado, mas falha no envio do email para ${pointData.employee_name}`
       );
-    } catch (error: any) {
-      console.error('❌ Erro ao registrar ponto:', error);
-      setMessage(`❌ Erro ao registrar ponto: ${error.message || String(error)}`);
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -150,50 +146,43 @@ const PointRegistration: React.FC = () => {
       <h1 className="text-2xl font-semibold">Teste de Envio de Email (EmailJS)</h1>
 
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="block text-sm font-medium">Funcionário</label>
-          <select
-            className="w-full border rounded p-2"
-            value={form.employee_name}
-            onChange={(e) => setForm((f) => ({ ...f, employee_name: e.target.value }))}
-          >
-            <option>Rodrigo</option>
-            <option>Maurício</option>
-            <option>Matheus</option>
-            <option>Wesley</option>
-          </select>
-        </div>
+        <SelectField
+          label="Funcionário"
+          value={form.employee_name}
+          onChange={(value) => setForm((f) => ({ ...f, employee_name: value }))}
+          options={[
+            { value: "Rodrigo", label: "Rodrigo" },
+            { value: "Maurício", label: "Maurício" },
+            { value: "Matheus", label: "Matheus" },
+            { value: "Wesley", label: "Wesley" }
+          ]}
+        />
 
-        <div>
-          <label className="block text-sm font-medium">Refinaria</label>
-          <input
-            className="w-full border rounded p-2"
-            value={form.refinery}
-            onChange={(e) => setForm((f) => ({ ...f, refinery: e.target.value }))}
-          />
-        </div>
+        <InputField
+          label="Refinaria"
+          value={form.refinery}
+          onChange={(value) => setForm((f) => ({ ...f, refinery: value }))}
+        />
 
-        <div>
-          <label className="block text-sm font-medium">Pontos</label>
-          <input
-            type="number"
-            className="w-full border rounded p-2"
-            value={form.points}
-            onChange={(e) => setForm((f) => ({ ...f, points: Number(e.target.value) }))}
-          />
-        </div>
+        <InputField
+          label="Pontos"
+          type="number"
+          value={form.points.toString()}
+          onChange={(value) => setForm((f) => ({ ...f, points: Number(value) }))}
+        />
 
-        <div>
-          <label className="block text-sm font-medium">Observações</label>
-          <input
-            className="w-full border rounded p-2"
-            value={form.observations || ''}
-            onChange={(e) => setForm((f) => ({ ...f, observations: e.target.value }))}
-          />
-        </div>
+        <TextareaField
+          label="Observações"
+          value={form.observations || ''}
+          onChange={(value) => setForm((f) => ({ ...f, observations: value }))}
+        />
 
-        <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded">
-          {loading ? 'Registrando...' : 'Registrar Ponto'}
+        <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded flex items-center justify-center">
+          {loading ? (
+            <InlineLoading text="Registrando..." size="sm" />
+          ) : (
+            'Registrar Ponto'
+          )}
         </button>
       </form>
 

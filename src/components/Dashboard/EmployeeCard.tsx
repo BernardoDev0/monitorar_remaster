@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { EMPLOYEE_STATUS_CONFIG } from "@/lib/constants";
+import { formatNumberWithSeparators, getInitials } from "@/lib/shared-utils";
 
 interface EmployeeCardProps {
   name: string;
@@ -27,39 +29,13 @@ export function EmployeeCard({
   monthlyProgress,
   status
 }: EmployeeCardProps) {
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-  };
-
-  const formatNumber = (n: number) => n.toLocaleString('pt-BR');
-
+  // Usando utilitários centralizados
   const getStatusConfig = () => {
-    switch (status) {
-      case "above":
-        return {
-          badge: "Acima da Meta",
-          variant: "default" as const,
-          icon: CheckCircle,
-          color: "text-dashboard-success",
-          badgeClass: "bg-emerald-500/15 text-emerald-100 border border-emerald-500/25"
-        };
-      case "on-track":
-        return {
-          badge: "No Caminho",
-          variant: "secondary" as const,
-          icon: Clock,
-          color: "text-dashboard-warning",
-          badgeClass: "bg-yellow-500/15 text-yellow-100 border border-yellow-500/25"
-        };
-      default:
-        return {
-          badge: "Abaixo da Meta",
-          variant: "destructive" as const,
-          icon: AlertTriangle,
-          color: "text-dashboard-danger",
-          badgeClass: "bg-red-500/20 backdrop-blur-sm border border-red-500/30 text-red-100"
-        };
-    }
+    const config = EMPLOYEE_STATUS_CONFIG[status];
+    return {
+      ...config,
+      icon: status === "above" ? CheckCircle : status === "on-track" ? Clock : AlertTriangle
+    };
   };
 
   const statusConfig = getStatusConfig();
@@ -97,8 +73,8 @@ export function EmployeeCard({
               <span className="text-sm font-medium text-foreground">Semanal</span>
             </div>
             <div className="flex items-baseline justify-between">
-              <div className="text-2xl font-semibold text-dashboard-info">{formatNumber(weeklyPoints)}<span className="ml-1 text-sm text-muted-foreground">pts</span></div>
-              <div className="text-xs text-muted-foreground">Meta: {formatNumber(weeklyGoal)}</div>
+              <div className="text-2xl font-semibold text-dashboard-info">{formatNumberWithSeparators(weeklyPoints)}<span className="ml-1 text-sm text-muted-foreground">pts</span></div>
+              <div className="text-xs text-muted-foreground">Meta: {formatNumberWithSeparators(weeklyGoal)}</div>
             </div>
             <Progress value={weeklyProgress} className="h-1.5 bg-white/10" />
             <div className="text-xs text-muted-foreground">{weeklyProgress.toFixed(1)}% da meta semanal</div>
@@ -111,8 +87,8 @@ export function EmployeeCard({
               <span className="text-sm font-medium text-foreground">Mensal</span>
             </div>
             <div className="flex items-baseline justify-between">
-              <div className="text-2xl font-semibold text-dashboard-secondary">{formatNumber(monthlyPoints)}<span className="ml-1 text-sm text-muted-foreground">pts</span></div>
-              <div className="text-xs text-muted-foreground">Meta: {formatNumber(monthlyGoal)}</div>
+              <div className="text-2xl font-semibold text-dashboard-secondary">{formatNumberWithSeparators(monthlyPoints)}<span className="ml-1 text-sm text-muted-foreground">pts</span></div>
+              <div className="text-xs text-muted-foreground">Meta: {formatNumberWithSeparators(monthlyGoal)}</div>
             </div>
             <Progress value={monthlyProgress} className="h-1.5 bg-white/10" />
             <div className="text-xs text-muted-foreground">{monthlyProgress.toFixed(1)}% da meta mensal</div>

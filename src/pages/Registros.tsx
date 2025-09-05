@@ -24,6 +24,8 @@ import {
    Hash,
    MessageSquare
 } from "lucide-react";
+import { useLoading, InlineLoading, TableLoading } from "@/components/ui/loading-state";
+import { SelectField, InputField } from "@/components/ui/form-field";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -64,7 +66,7 @@ export default function Registros() {
   const [records, setRecords] = useState<EntryRecord[]>([]);
   const [employees, setEmployees] = useState<string[]>([]);
   const [employeesFull, setEmployeesFull] = useState<{id:number; real_name:string;}[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { loading, withLoading } = useLoading(true);
   // estado de importação removido
 
   // Estados de edição/exclusão
@@ -83,8 +85,7 @@ export default function Registros() {
   }, []);
 
   const loadRecords = async () => {
-    try {
-      setLoading(true);
+    await withLoading(async () => {
       const { data: entries, error: entriesError } = await supabase
         .from('entry')
         .select('id, date, points, observations, refinery, employee_id')
@@ -117,12 +118,7 @@ export default function Registros() {
       setRecords(transformedRecords);
       const uniqueEmployees = [...new Set(transformedRecords.map(r => r.employee))];
       setEmployees(uniqueEmployees);
-    } catch (error) {
-      console.error('Erro ao carregar registros:', error);
-      toast({ title: "Erro", description: "Erro ao carregar registros", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   // Abrir modal de edição
@@ -350,47 +346,37 @@ export default function Registros() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Semana:</label>
-              <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas</SelectItem>
-                  <SelectItem value="1">Semana 1</SelectItem>
-                  <SelectItem value="2">Semana 2</SelectItem>
-                  <SelectItem value="3">Semana 3</SelectItem>
-                  <SelectItem value="4">Semana 4</SelectItem>
-                  <SelectItem value="5">Semana 5</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Funcionário:</label>
-              <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  {employees.map(employee => (
-                    <SelectItem key={employee} value={employee}>{employee}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Buscar:</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar registros..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-secondary border-border"
-                />
-              </div>
+            <SelectField
+              label="Semana"
+              value={selectedWeek}
+              onChange={setSelectedWeek}
+              options={[
+                { value: "todas", label: "Todas" },
+                { value: "1", label: "Semana 1" },
+                { value: "2", label: "Semana 2" },
+                { value: "3", label: "Semana 3" },
+                { value: "4", label: "Semana 4" },
+                { value: "5", label: "Semana 5" }
+              ]}
+            />
+            <SelectField
+              label="Funcionário"
+              value={selectedEmployee}
+              onChange={setSelectedEmployee}
+              options={[
+                { value: "todos", label: "Todos" },
+                ...employees.map(employee => ({ value: employee, label: employee }))
+              ]}
+            />
+            <div className="relative">
+              <InputField
+                label="Buscar"
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder="Buscar registros..."
+                className="pl-10"
+              />
+              <Search className="absolute left-3 top-9 h-4 w-4 text-muted-foreground" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Ações:</label>
@@ -464,12 +450,7 @@ export default function Registros() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    <Clock className="h-8 w-8 mx-auto mb-2 opacity-50 animate-spin" />
-                    Carregando registros...
-                  </TableCell>
-                </TableRow>
+                <TableLoading colSpan={8} message="Carregando registros..." />
               ) : filteredRecords.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
@@ -557,38 +538,44 @@ export default function Registros() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm text-foreground">Data</label>
-              <Input value={editDate} onChange={e => setEditDate(e.target.value)} placeholder="dd/MM/yyyy" className="bg-secondary border-border" />
-            </div>
-            <div>
-              <label className="text-sm text-foreground">Horário</label>
-              <Input value={editTime} onChange={e => setEditTime(e.target.value)} placeholder="HH:mm" className="bg-secondary border-border" />
-            </div>
-            <div>
-              <label className="text-sm text-foreground">Funcionário</label>
-              <Select value={editEmployeeId} onValueChange={setEditEmployeeId}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employeesFull.map(emp => (
-                    <SelectItem key={emp.id} value={String(emp.id)}>{emp.real_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm text-foreground">Refinaria</label>
-              <Input value={editRefinery} onChange={e => setEditRefinery(e.target.value)} className="bg-secondary border-border" />
-            </div>
-            <div>
-              <label className="text-sm text-foreground">Pontos</label>
-              <Input type="number" value={editPoints} onChange={e => setEditPoints(e.target.value)} className="bg-secondary border-border" />
-            </div>
+            <InputField
+              label="Data"
+              value={editDate}
+              onChange={setEditDate}
+              placeholder="dd/MM/yyyy"
+            />
+            <InputField
+              label="Horário"
+              value={editTime}
+              onChange={setEditTime}
+              placeholder="HH:mm"
+            />
+            <SelectField
+              label="Funcionário"
+              value={editEmployeeId}
+              onChange={setEditEmployeeId}
+              options={employeesFull.map(emp => ({
+                value: String(emp.id),
+                label: emp.real_name
+              }))}
+            />
+            <InputField
+              label="Refinaria"
+              value={editRefinery}
+              onChange={setEditRefinery}
+            />
+            <InputField
+              label="Pontos"
+              type="number"
+              value={editPoints}
+              onChange={setEditPoints}
+            />
             <div className="md:col-span-2">
-              <label className="text-sm text-foreground">Observações</label>
-              <Input value={editObs} onChange={e => setEditObs(e.target.value)} className="bg-secondary border-border" />
+              <InputField
+                label="Observações"
+                value={editObs}
+                onChange={setEditObs}
+              />
             </div>
           </div>
           <DialogFooter>

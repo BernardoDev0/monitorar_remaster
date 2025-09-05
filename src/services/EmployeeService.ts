@@ -1,4 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
+import { 
+  getAllEmployees, 
+  getEmployeeById, 
+  getEmployeeByAccessKey,
+  createEntry,
+  getEmployeeEntries,
+  addToEmailQueue 
+} from '@/lib/supabase-utils';
+import { formatDateISO } from '@/lib/date-utils';
 
 export interface Employee {
   id: number;
@@ -27,115 +36,72 @@ export interface Entry {
 export class EmployeeService {
   // Autenticação por chave de acesso (mantendo lógica original)
   static async authenticateByAccessKey(accessKey: string): Promise<Employee | null> {
-    try {
-      const { data, error } = await supabase
-        .from('employee')
-        .select('*')
-        .eq('access_key', accessKey)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Erro na autenticação:', error);
-        return null;
-      }
-
-      // Se não encontrou nenhum registro (data é null), retorna null
-      if (!data) {
-        console.warn('Chave de acesso não encontrada:', accessKey);
-        return null;
-      }
-
-      return data as Employee;
-    } catch (error) {
-      console.error('Erro na autenticação:', error);
+    const result = await getEmployeeByAccessKey(accessKey);
+    
+    if (!result.success || !result.data) {
       return null;
     }
+    
+    return result.data as Employee;
   }
 
   // Buscar funcionário por ID
   static async getEmployeeById(id: number): Promise<Employee | null> {
-    try {
-      const { data, error } = await supabase
-        .from('employee')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Erro ao buscar funcionário:', error);
-        return null;
-      }
-
-      // Se não encontrou nenhum registro (data é null), retorna null
-      if (!data) {
+    const result = await getEmployeeById(id);
+    
+    if (!result.success || !result.data) {
+      if (!result.data) {
         console.warn('Funcionário não encontrado com ID:', id);
-        return null;
       }
-
-      return data as Employee;
-    } catch (error) {
-      console.error('Erro ao buscar funcionário:', error);
       return null;
     }
+    
+    return result.data as Employee;
   }
 
   // Buscar todos os funcionários
   static async getAllEmployees(): Promise<Employee[]> {
-    try {
-      const { data, error } = await supabase
-        .from('employee')
-        .select('*')
-        .order('real_name');
-
-      if (error) {
-        console.error('Erro ao buscar funcionários:', error);
-        return [];
-      }
-
-      return data as Employee[];
-    } catch (error) {
-      console.error('Erro ao buscar funcionários:', error);
+    const result = await getAllEmployees();
+    
+    if (!result.success || !result.data) {
       return [];
     }
+    
+    return result.data as Employee[];
   }
 
   // Registrar novo ponto
   static async createEntry(entry: Omit<Entry, 'id' | 'created_at' | 'updated_at'>): Promise<Entry | null> {
-    try {
-      const { data, error } = await supabase
-        .from('entry')
-        .insert([entry])
-        .select()
-        .single();
-
-      if (error || !data) {
-        console.error('Erro ao registrar pontos:', error);
-        return null;
-      }
-
-      // Disparar e-mail de confirmação via Edge Function (não bloqueante)
-      try {
-        const emp = await this.getEmployeeById(entry.employee_id);
-        const payload = {
-          employee_name: emp?.real_name || emp?.name || 'Funcionário',
-          date: entry.date,
-          points: entry.points,
-          refinery: entry.refinery,
-          observations: entry.observations,
-        };
-        // Use a invocação oficial do Supabase para Edge Functions
-        supabase.functions
-          .invoke('send-confirmation-email', { body: payload })
-          .catch(err => console.warn('Falha ao chamar função de email:', err));
-      } catch (e) {
-        console.warn('Não foi possível preparar envio de email:', e);
-      }
-
-      return data as Entry;
-    } catch (error) {
-      console.error('Erro ao registrar pontos:', error);
+    const result = await createEntry({
+      employee_id: entry.employee_id,
+      date: entry.date,
+      points: entry.points,
+      refinery: entry.refinery,
+      observations: entry.observations
+    });
+    
+    if (!result.success || !result.data) {
       return null;
     }
+    
+    // Disparar e-mail de confirmação (não bloqueante)
+    try {
+      const emp = await this.getEmployeeById(entry.employee_id);
+      const payload = {
+        employee_name: emp?.real_name || emp?.name || 'Funcionário',
+        date: entry.date,
+        points: entry.points,
+        refinery: entry.refinery,
+        observations: entry.observations || ''
+      };
+      
+      await addToEmailQueue(payload);
+    } catch (emailError) {
+      console.warn('Erro ao adicionar email à fila:', emailError);
+      // Não falha a operação principal se o email falhar
+    }
+    
+    return result.data as Entry;
   }
 
   // Buscar entradas do funcionário
@@ -145,42 +111,18 @@ export class EmployeeService {
     offset?: number,
     dateFilter?: { start?: string; end?: string }
   ): Promise<Entry[]> {
-    try {
-      let query = supabase
-        .from('entry')
-        .select('*')
-        .eq('employee_id', employeeId)
-        .order('date', { ascending: false });
-
-      if (dateFilter?.start) {
-        query = query.gte('date', dateFilter.start);
-      }
-      if (dateFilter?.end) {
-        // Tornar limite superior exclusivo: end + 1 dia
-        const endExclusive = new Date(`${dateFilter.end}T00:00:00Z`);
-        endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
-        const endExclusiveStr = endExclusive.toISOString().split('T')[0];
-        query = query.lt('date', endExclusiveStr);
-      }
-      if (limit) {
-        query = query.limit(limit);
-      }
-      if (offset) {
-        query = query.range(offset, offset + (limit || 10) - 1);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('Erro ao buscar entradas:', error);
-        return [];
-      }
-
-      return data as Entry[];
-    } catch (error) {
-      console.error('Erro ao buscar entradas:', error);
+    const result = await getEmployeeEntries(employeeId, {
+      limit,
+      offset,
+      start: dateFilter?.start,
+      end: dateFilter?.end
+    });
+    
+    if (!result.success || !result.data) {
       return [];
     }
+    
+    return result.data as Entry[];
   }
 
   // Calcular pontos do dia
@@ -188,10 +130,10 @@ export class EmployeeService {
     try {
       // Usar janela [início do dia, início do próximo dia) para evitar problemas de timezone
       const todayDate = new Date();
-      const startStr = todayDate.toISOString().split('T')[0];
+      const startStr = formatDateISO(todayDate);
       const endDate = new Date(todayDate);
       endDate.setUTCDate(endDate.getUTCDate() + 1);
-      const endStr = endDate.toISOString().split('T')[0];
+      const endStr = formatDateISO(endDate);
       
       const { data, error } = await supabase
         .from('entry')
@@ -218,7 +160,7 @@ export class EmployeeService {
       // Tornar limite superior exclusivo: end + 1 dia
       const endExclusive = new Date(`${weekDates.end}T00:00:00Z`);
       endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
-      const endExclusiveStr = endExclusive.toISOString().split('T')[0];
+      const endExclusiveStr = formatDateISO(endExclusive);
 
       const { data, error } = await supabase
         .from('entry')
@@ -245,7 +187,7 @@ export class EmployeeService {
       // Tornar limite superior exclusivo: end + 1 dia
       const endExclusive = new Date(`${monthDates.end}T00:00:00Z`);
       endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
-      const endExclusiveStr = endExclusive.toISOString().split('T')[0];
+      const endExclusiveStr = formatDateISO(endExclusive);
 
       const { data, error } = await supabase
         .from('entry')

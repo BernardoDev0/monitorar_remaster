@@ -5,6 +5,7 @@ import { EmployeeCard } from "@/components/Dashboard/EmployeeCard";
 import { ProgressSection } from "@/components/Dashboard/ProgressSection";
 import { EmployeeService, Employee } from "@/services/EmployeeService";
 import { CalculationsService } from "@/services/CalculationsService";
+import { PageLoading, useLoading } from "@/components/ui/loading-state";
 
 interface EmployeeMetrics extends Employee {
   weeklyPoints: number;
@@ -19,13 +20,12 @@ interface EmployeeMetrics extends Employee {
 const Index = () => {
   const [selectedWeek, setSelectedWeek] = useState("1");
   const [employees, setEmployees] = useState<EmployeeMetrics[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { loading, withLoading } = useLoading(true);
   const navigate = useNavigate();
 
   // Carregar dados dos funcionários
   const loadEmployeesData = async () => {
-    try {
-      setLoading(true);
+    await withLoading(async () => {
       const allEmployees = await EmployeeService.getAllEmployees();
       
       // Calcular métricas para cada funcionário
@@ -62,11 +62,7 @@ const Index = () => {
       );
       
       setEmployees(employeesWithMetrics);
-    } catch (error) {
-      console.error('Erro ao carregar dados dos funcionários:', error);
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   // Verificar se o usuário tem permissão (CEO)
@@ -95,12 +91,10 @@ const Index = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando dados da equipe...</p>
-        </div>
-      </div>
+      <PageLoading 
+        title="Carregando Dashboard Executivo" 
+        description="Buscando dados da equipe..." 
+      />
     );
   }
 

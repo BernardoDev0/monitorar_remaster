@@ -1,6 +1,9 @@
 import * as XLSX from 'xlsx';
 import { CalculationsService } from './CalculationsService';
 import { supabase } from '@/integrations/supabase/client';
+import { parseDate, formatDateISO, isValidDate } from '@/lib/date-utils';
+import { parseNumberBR, isValidNumber, safeSum } from '@/lib/number-utils';
+import { batchInsertEntries, getCachedEmployees } from '@/lib/supabase-utils';
 
 export interface ExcelRecord {
   employee: string;
@@ -168,29 +171,29 @@ export class ExcelProcessorService {
             totalRows++;
             try {
               let rawDate = this.getFirstValueByKeyIncludes(row, ['data', 'date', 'dia']);
-              let dateValue = this.parseDateAny(rawDate) || this.parseDateAny(String(rawDate || ''));
+              let dateValue = parseDate(rawDate);
 
               // Se ainda não obteve data, tentar a chave detectada automaticamente
               if (!dateValue && fallbackDateKey && Object.prototype.hasOwnProperty.call(row, fallbackDateKey)) {
                 rawDate = (row as any)[fallbackDateKey];
-                dateValue = this.parseDateAny(rawDate) || this.parseDateAny(String(rawDate || ''));
+                dateValue = parseDate(rawDate);
               }
 
               // Se ainda não, varrer os valores da linha e pegar o primeiro que pareça data
               if (!dateValue && row && typeof row === 'object') {
                 for (const key of Object.keys(row)) {
                   const candidate = (row as any)[key];
-                  const tryDate = this.parseDateAny(candidate) || this.parseDateAny(String(candidate || ''));
+                  const tryDate = parseDate(candidate);
                   if (tryDate) { dateValue = tryDate; break; }
                 }
               }
 
               // Usar apenas colunas de pontos, evitando colunas de metas/objetivos/planejado
               let rawPoints = this.getFirstValueByKeyMatch(row, ['pontos', 'pontuacao', 'pontuação'], ['meta','objetiv','planejad','previst','saldo']);
-              if ((rawPoints === undefined || this.parseNumberBr(rawPoints) === 0) && fallbackPointsKey && Object.prototype.hasOwnProperty.call(row, fallbackPointsKey)) {
+              if ((rawPoints === undefined || parseNumberBR(rawPoints) === 0) && fallbackPointsKey && Object.prototype.hasOwnProperty.call(row, fallbackPointsKey)) {
                 rawPoints = (row as any)[fallbackPointsKey];
               }
-              const pointsValue = this.parseNumberBr(rawPoints);
+              const pointsValue = parseNumberBR(rawPoints);
               const refineryValue = String(this.getFirstValueByKeyIncludes(row, ['refinaria', 'refinery']))
                 .trim();
 
@@ -286,16 +289,16 @@ export class ExcelProcessorService {
     for (const row of rows) {
       if (!row || typeof row !== 'object') continue;
       for (const key of Object.keys(row)) {
-        const k = String(key).toLowerCase();
-        if (excludeName.some((n) => k.includes(n))) continue;
-        const v = (row as any)[key];
-        const n = this.parseNumberBr(v);
-        if (!isNaN(n) && isFinite(n) && n > 0) {
-          if (!sums[key]) sums[key] = { sum: 0, count: 0 };
-          sums[key].sum += n;
-          sums[key].count += 1;
+          const k = String(key).toLowerCase();
+          if (excludeName.some((n) => k.includes(n))) continue;
+          const v = (row as any)[key];
+          const n = parseNumberBR(v);
+          if (!isNaN(n) && isFinite(n) && n > 0) {
+            if (!sums[key]) sums[key] = { sum: 0, count: 0 };
+            sums[key].sum += n;
+            sums[key].count += 1;
+          }
         }
-      }
     }
 
     const entries = Object.entries(sums);
@@ -318,24 +321,7 @@ export class ExcelProcessorService {
     return best;
   }
 
-  private static parseNumberBr(value: any): number {
-    if (typeof value === 'number') return isFinite(value) ? value : 0;
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (!trimmed) return 0;
-      // Extrair o primeiro token numérico da string (ex.: "1.234 pts" -> "1.234")
-      const token = trimmed.match(/-?\d{1,3}(?:[\.,]\d{3})*(?:[\.,]\d+)?|-?\d+(?:[\.,]\d+)?/);
-      const piece = token ? token[0] : trimmed;
-      // Normalização PT-BR: "." milhar e "," decimal
-      const normalized = piece
-        .replace(/\s+/g, '')
-        .replace(/\.(?=\d{3}(\D|$))/g, '')
-        .replace(/,(\d{1,})$/, '.$1');
-      const num = parseFloat(normalized.replace(',', '.'));
-      return isNaN(num) ? 0 : num;
-    }
-    return 0;
-  }
+  // Removido - usando parseNumberBR do number-utils
 
   private static detectDateKey(rows: any[]): string | null {
     if (!Array.isArray(rows) || rows.length === 0) return null;
@@ -348,7 +334,7 @@ export class ExcelProcessorService {
         const k = String(key).toLowerCase();
         if (exclude.some((n) => k.includes(n))) continue;
         const v = (row as any)[key];
-        const d = this.parseDateAny(v) || this.parseDateAny(String(v || ''));
+        const d = parseDate(v);
         if (d) scores[key] = (scores[key] || 0) + 1;
       }
     }
@@ -360,63 +346,7 @@ export class ExcelProcessorService {
     return best;
   }
 
-  private static parseDateAny(dateValue: any): Date | null {
-    if (!dateValue) return null;
-
-    if (dateValue instanceof Date && !isNaN(dateValue.getTime())) return dateValue;
-
-    if (typeof dateValue === 'number') {
-      return new Date(Math.round((dateValue - 25569) * 86400 * 1000));
-    }
-
-    if (typeof dateValue === 'string') {
-      const str = dateValue.trim();
-
-      // dd/mm/yyyy [hh[:mm[:ss]]]
-      const m1 = str.match(/^\s*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:\s+(\d{1,2})(?::(\d{1,2})(?::(\d{1,2}))?)?)?\s*.*$/i);
-      if (m1) {
-        const d = parseInt(m1[1], 10);
-        const m = parseInt(m1[2], 10);
-        let y = parseInt(m1[3], 10);
-        const hh = m1[4] ? parseInt(m1[4], 10) : 0;
-        const mm = m1[5] ? parseInt(m1[5], 10) : 0;
-        const ss = m1[6] ? parseInt(m1[6], 10) : 0;
-        if (y < 100) y += 2000;
-        const dt = new Date(y, (m - 1), d, hh, mm, ss);
-        return isNaN(dt.getTime()) ? null : dt;
-      }
-
-      // 12-jul-2024 ou 12 jul 2024 (PT-BR)
-      const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-      const m2 = str.toLowerCase().match(/^(\d{1,2})[\s\-\/.]+([a-zçãé]{3,})[a-z]*[\s\-\/.]+(\d{2,4})/i);
-      if (m2) {
-        const d = parseInt(m2[1], 10);
-        let mon = meses.findIndex((m) => m2[2].startsWith(m));
-        if (mon >= 0) mon += 1; else mon = NaN as any;
-        let y = parseInt(m2[3], 10);
-        if (y < 100) y += 2000;
-        if (!isNaN(mon)) {
-          const dt = new Date(y, mon - 1, d);
-          return isNaN(dt.getTime()) ? null : dt;
-        }
-      }
-
-      // mm/yyyy
-      const m3 = str.match(/^(\d{1,2})[\/-](\d{4})$/);
-      if (m3) {
-        const m = parseInt(m3[1], 10);
-        const y = parseInt(m3[2], 10);
-        const dt = new Date(y, m - 1, 1);
-        return isNaN(dt.getTime()) ? null : dt;
-      }
-
-      // ISO ou outros formatos reconhecidos pelo Date
-      const dt = new Date(str);
-      return isNaN(dt.getTime()) ? null : dt;
-    }
-
-    return null;
-  }
+  // Removido - usando parseDate do date-utils
 
 
 
@@ -636,7 +566,7 @@ export class ExcelProcessorService {
     const { start, end } = CalculationsService.getMonthCycleDates();
     const endExclusiveDate = new Date(`${end}T00:00:00Z`);
     endExclusiveDate.setUTCDate(endExclusiveDate.getUTCDate() + 1);
-    const endExclusive = endExclusiveDate.toISOString().split('T')[0];
+    const endExclusive = formatDateISO(endExclusiveDate);
 
     // 3) mapa funcionários (id por nome)
     const { data: employees, error: empErr } = await supabase
@@ -719,9 +649,7 @@ export class ExcelProcessorService {
           if (dataCellStr.startsWith('total') || obsStr.includes('restante mensal')) continue;
 
           // parse pontos
-          if (typeof pts === 'string') {
-            pts = Number(pts.replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '')) || 0;
-          }
+          pts = parseNumberBR(pts);
 
           const d = ensureDate(dataCell);
           if (!d) continue;

@@ -6,6 +6,7 @@ import { EmployeeService, Entry } from "@/services/EmployeeService";
 import { CalculationsService } from "@/services/CalculationsService";
 import { format, startOfMonth, endOfMonth, eachWeekOfInterval, startOfWeek, endOfWeek, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useLoading, CardLoading } from "@/components/ui/loading-state";
 
 interface MonthlyEvolutionTabProps {
   employeeId: number;
@@ -23,12 +24,10 @@ interface WeeklyData {
 export const MonthlyEvolutionTab = ({ employeeId, monthlyGoal, weeklyGoal }: MonthlyEvolutionTabProps) => {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { loading, withLoading } = useLoading(true);
 
   const loadMonthlyData = async () => {
-    try {
-      setLoading(true);
-      
+    await withLoading(async () => {
       // Buscar dados do mês atual
       const monthDates = CalculationsService.getMonthCycleDates();
       const monthEntries = await EmployeeService.getEmployeeEntries(
@@ -74,26 +73,23 @@ export const MonthlyEvolutionTab = ({ employeeId, monthlyGoal, weeklyGoal }: Mon
       }
       
       setWeeklyData(chartData);
-      
-    } catch (error) {
-      console.error('Erro ao carregar dados mensais:', error);
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   useEffect(() => {
     loadMonthlyData();
-  }, [employeeId, monthlyGoal]);
+  }, [employeeId, monthlyGoal, withLoading]);
 
   if (loading) {
     return (
       <Card className="bg-gradient-card border-border/50 shadow-card">
-        <CardContent className="flex items-center justify-center py-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Carregando evolução mensal...</p>
-          </div>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-xl font-medium text-foreground">
+            Evolução Mensal
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CardLoading />
         </CardContent>
       </Card>
     );

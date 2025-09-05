@@ -14,12 +14,13 @@ import { TeamChart } from "@/components/Charts/TeamChart";
 import { ChartTypeSelector } from "@/components/Charts/ChartTypeSelector";
 import { EmployeeControls } from "@/components/Charts/EmployeeControls";
 import { ExecutivePanel } from "@/components/Charts/ExecutivePanel";
+import { useLoading, InlineLoading, CardLoading } from "@/components/ui/loading-state";
 
 export default function Graficos() {
   const [selectedChart, setSelectedChart] = useState("weekly");
   const [viewMode, setViewMode] = useState<"team" | "individual">("team");
   const [hiddenEmployees, setHiddenEmployees] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
+  const { loading, withLoading } = useLoading(false);
   const [chartData, setChartData] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [weeklyStats, setWeeklyStats] = useState<any>(null);
@@ -41,8 +42,7 @@ export default function Graficos() {
   }, [selectedChart, weeklyStats, monthlyStats]);
 
   const loadRealData = async () => {
-    setLoading(true);
-    try {
+    await withLoading(async () => {
       const [chartDataResult, monthlyStatsResult, weeklyStatsResult] = await Promise.all([
         DataService.getChartData(),
         DataService.getGeneralStats(), // Mensal
@@ -55,16 +55,7 @@ export default function Graficos() {
 
       // Define stats inicial de acordo com aba padrão (weekly)
       setStats(weeklyStatsResult);
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar dados dos gráficos",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const toggleEmployee = (employee: string) => {
@@ -80,35 +71,18 @@ export default function Graficos() {
   };
 
   const handleExportData = async () => {
-    setLoading(true);
-    try {
+    await withLoading(async () => {
       await ExportService.exportEmployeeDataToZip();
       toast({
         title: "Sucesso",
         description: "Arquivos exportados com sucesso! Verifique sua pasta de downloads.",
       });
-    } catch (error) {
-      console.error('Erro ao exportar:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao exportar dados",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const renderChart = () => {
     if (loading || !chartData) {
-      return (
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-            <p className="text-muted-foreground">Carregando dados...</p>
-          </div>
-        </div>
-      );
+      return <CardLoading />;
     }
 
     switch (selectedChart) {
@@ -181,8 +155,14 @@ export default function Graficos() {
             variant="outline"
             className="gap-2"
           >
-            <Download className="h-4 w-4" />
-            {loading ? 'Exportando...' : 'Exportar Excel'}
+            {loading ? (
+              <InlineLoading text="Exportando..." size="sm" />
+            ) : (
+              <>
+                <Download className="h-4 w-4" />
+                Exportar Excel
+              </>
+            )}
           </Button>
           
           <Badge variant="outline" className="text-dashboard-info border-dashboard-info/30">
