@@ -247,8 +247,8 @@ export default function Graficos() {
         </div>
       </div>
 
-      {/* Statistics Cards - Separated Below Chart */}
-      {stats && (
+      {/* Statistics Cards - Apenas para Progresso Semanal e Progresso Mensal */}
+      {stats && selectedChart !== 'team' && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Melhor Card */}
@@ -278,7 +278,7 @@ export default function Graficos() {
               <CardContent className="p-4">
                 <div className="text-center">
                   <div className="text-xs text-muted-foreground mb-1">Meta</div>
-                  <div className="font-semibold text-dashboard-warning text-lg">{stats.totalGoal}K</div>
+                  <div className="font-semibold text-dashboard-warning text-lg">29.500 pts</div>
                   <div className="text-xs text-muted-foreground">{selectedChart === 'weekly' ? 'mensal' : 'mensal'}</div>
                 </div>
               </CardContent>
@@ -352,6 +352,7 @@ export default function Graficos() {
           )}
         </>
       )}
+
     </div>
   );
 }

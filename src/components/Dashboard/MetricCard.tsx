@@ -55,15 +55,24 @@ export function MetricCard({ title, value, subtitle, icon, variant = "default" }
           <Icon className={`h-4 w-4 ${getIconColor()}`} />
         )}
       </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold text-foreground mb-1">
-          {value}
+      <CardContent className="pb-4 h-20 flex items-center">
+        <div className="flex items-center justify-between w-full">
+          <div className="flex-1">
+            <div className="text-2xl font-bold text-foreground">
+              {value}
+            </div>
+          </div>
+          {subtitle && (
+            <div className="ml-4 p-2 bg-dashboard-success/10 border border-dashboard-success/30 rounded-lg backdrop-blur-sm">
+              <div className="text-sm font-bold text-dashboard-success">
+                {subtitle.split(': ')[1]}
+              </div>
+              <div className="text-xs text-dashboard-success/70">
+                Faturamento
+              </div>
+            </div>
+          )}
         </div>
-        {subtitle && (
-          <p className="text-xs text-muted-foreground">
-            {subtitle}
-          </p>
-        )}
       </CardContent>
     </Card>
   );

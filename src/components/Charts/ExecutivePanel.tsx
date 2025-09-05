@@ -43,7 +43,7 @@ export function ExecutivePanel({ monthlyData, teamData, hiddenEmployees }: Execu
 
   const totalPoints = useMemo(() => visibleTeam.reduce((s, r) => s + (r.value || 0), 0), [visibleTeam]);
   const POINT_VALUE = 3.45;
-  const metaEquipe = 29500;
+  const metaEquipe = 29500; // 10.500 + 9.500 + 9.500 = 29.500
 
   // Projeções
   const runRatePerDay = totalPoints / Math.max(elapsedDays, 1);
@@ -72,9 +72,9 @@ export function ExecutivePanel({ monthlyData, teamData, hiddenEmployees }: Execu
     return { last, prev, changePct };
   }, [monthlyData, hiddenEmployees]);
 
-  // Risco por colaborador: ritmo atual vs ritmo esperado da meta mensal individual
+  // Risco por colaborador: progresso atual vs meta mensal
   const riskList = useMemo(() => {
-    if (!employees || employees.length === 0) return [] as { name: string; atual: number; esperado: number; pacePct: number }[];
+    if (!employees || employees.length === 0) return [] as { name: string; atual: number; monthlyGoal: number; progressPct: number }[];
     const mapAtual = new Map<string, number>();
     for (const t of teamData) {
       mapAtual.set(t.name, t.value || 0);
@@ -82,78 +82,114 @@ export function ExecutivePanel({ monthlyData, teamData, hiddenEmployees }: Execu
     const list = employees
       .filter(e => e.real_name !== 'Rodrigo' && !hiddenEmployees.has(e.real_name))
       .map(e => {
-        const goal = CalculationsService.getMonthlyGoal(e) || 0;
-        const esperado = Math.round((goal * elapsedDays) / totalDays);
+        const monthlyGoal = CalculationsService.getMonthlyGoal(e);
         const atual = mapAtual.get(e.real_name) || 0;
-        const pacePct = esperado > 0 ? Math.round((atual / esperado) * 1000) / 10 : 0;
-        return { name: e.real_name, atual, esperado, pacePct };
+        const progressPct = monthlyGoal > 0 ? Math.round((atual / monthlyGoal) * 1000) / 10 : 0;
+        return { name: e.real_name, atual, monthlyGoal, progressPct };
       })
-      .filter(x => x.esperado > 0)
-      .sort((a, b) => a.pacePct - b.pacePct)
+      .filter(x => x.monthlyGoal > 0)
+      .sort((a, b) => a.progressPct - b.progressPct)
       .slice(0, 3);
     return list;
-  }, [employees, teamData, elapsedDays, totalDays, hiddenEmployees]);
+  }, [employees, teamData, hiddenEmployees]);
 
   return (
-    <div className="h-full grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Visão do mês */}
-      <div className="rounded-lg bg-gradient-to-br from-background/40 to-background/60 border border-border p-4">
-        <div className="text-xs text-muted-foreground mb-1">Visão do mês</div>
-        <div className="text-2xl font-bold text-foreground">{totalPoints.toLocaleString('pt-BR')} pts</div>
-        <div className="text-sm text-muted-foreground">{ExcelProcessorService.formatCurrency(totalPoints * POINT_VALUE)} até agora</div>
-        <div className="mt-3 h-2 w-full bg-muted/40 rounded-full overflow-hidden">
-          <div className="h-full bg-dashboard-primary" style={{ width: `${clamp(progressPct, 0, 100)}%` }} />
+    <div className="h-full space-y-4">
+      {/* Linha superior - Métricas principais */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Visão do mês */}
+        <div className="rounded-lg bg-gradient-to-br from-background/40 to-background/60 border border-border p-3">
+          <div className="text-xs text-muted-foreground mb-1">Visão do mês</div>
+          <div className="text-xl font-bold text-foreground">{totalPoints.toLocaleString('pt-BR')} pts</div>
+          <div className="text-sm text-muted-foreground">{ExcelProcessorService.formatCurrency(totalPoints * POINT_VALUE)}</div>
+          <div className="mt-2 h-1.5 w-full bg-muted/40 rounded-full overflow-hidden">
+            <div className="h-full bg-dashboard-primary" style={{ width: `${clamp(progressPct, 0, 100)}%` }} />
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">{progressPct}% da meta</div>
         </div>
-        <div className="mt-2 text-xs text-muted-foreground">{progressPct}% da meta de {(metaEquipe).toLocaleString('pt-BR')} pts</div>
+
+        {/* Meta e projeção */}
+        <div className="rounded-lg bg-gradient-to-br from-background/40 to-background/60 border border-border p-3">
+          <div className="text-xs text-muted-foreground mb-2 font-medium">Meta & Projeção</div>
+          <div className="text-lg font-bold text-foreground">Falta {gapToGoal.toLocaleString('pt-BR')} pts</div>
+          <div className="text-sm text-muted-foreground">{needPerDay.toLocaleString('pt-BR')} pts/dia</div>
+          <div className="mt-2 text-sm font-semibold text-foreground">Meta: {metaEquipe.toLocaleString('pt-BR')} pts</div>
+        </div>
+
+        {/* Progresso do ciclo */}
+        <div className="rounded-lg bg-gradient-to-br from-background/40 to-background/60 border border-border p-3">
+          <div className="text-xs text-muted-foreground mb-2 font-medium">Progresso do Ciclo</div>
+          <div className="text-lg font-bold text-foreground">{elapsedDays} de {totalDays} dias</div>
+          <div className="text-sm text-muted-foreground">Ritmo: {Math.round(runRatePerDay)} pts/dia</div>
+          <div className="mt-2 h-1.5 w-full bg-muted/40 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-dashboard-secondary transition-all duration-300" 
+              style={{ width: `${(elapsedDays / totalDays) * 100}%` }} 
+            />
+          </div>
+        </div>
       </div>
 
-      {/* Meta e projeção */}
-      <div className="rounded-lg bg-gradient-to-br from-background/40 to-background/60 border border-border p-4">
-        <div className="text-xs text-muted-foreground mb-1">Meta & Projeção</div>
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-foreground font-semibold">Falta {gapToGoal.toLocaleString('pt-BR')} pts</div>
-            <div className="text-xs text-muted-foreground">Necessário por dia: {needPerDay.toLocaleString('pt-BR')} pts</div>
-          </div>
-          <div className="text-right">
-            <div className="text-foreground font-semibold">Proj. {forecastPoints.toLocaleString('pt-BR')} pts</div>
-            <div className="text-xs text-muted-foreground">{ExcelProcessorService.formatCurrency(forecastPoints * POINT_VALUE)}</div>
-          </div>
+      {/* Linha inferior - Performance individual */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Risco de meta */}
+        <div className="rounded-lg bg-gradient-to-br from-background/40 to-background/60 border border-border p-3">
+          <div className="text-xs text-muted-foreground mb-3 font-medium">Risco de Meta</div>
+          {riskList.length === 0 ? (
+            <div className="flex items-center gap-2 text-sm text-dashboard-success">
+              <div className="w-2 h-2 rounded-full bg-dashboard-success"></div>
+              Todos dentro do ritmo
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {riskList.map((r) => {
+                const isHighRisk = r.progressPct < 50;
+                const isMediumRisk = r.progressPct >= 50 && r.progressPct < 100;
+                
+                return (
+                  <div key={r.name} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium text-foreground">{r.name}</div>
+                      <div className={`text-sm font-bold ${isHighRisk ? 'text-dashboard-danger' : isMediumRisk ? 'text-dashboard-warning' : 'text-dashboard-success'}`}>
+                        {r.progressPct}%
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{r.atual.toLocaleString('pt-BR')} pts</span>
+                      <span>Meta: {r.monthlyGoal.toLocaleString('pt-BR')} pts</span>
+                    </div>
+                    <div className="h-2 w-full bg-muted/40 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-300 ${
+                          isHighRisk ? 'bg-dashboard-danger' : 
+                          isMediumRisk ? 'bg-dashboard-warning' : 
+                          'bg-dashboard-success'
+                        }`}
+                        style={{ width: `${Math.min(r.progressPct, 100)}%` }} 
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-        <div className="mt-2 text-xs text-muted-foreground">{elapsedDays} de {totalDays} dias do ciclo • ritmo {Math.round(runRatePerDay)} pts/dia</div>
-      </div>
 
-      {/* Risco de meta (colaboradores abaixo do ritmo) */}
-      <div className="rounded-lg bg-gradient-to-br from-background/40 to-background/60 border border-border p-4">
-        <div className="text-xs text-muted-foreground mb-2">Risco de Meta (abaixo do ritmo)</div>
-        {riskList.length === 0 ? (
-          <div className="text-sm text-dashboard-success">Sem alertas — todos dentro do ritmo esperado.</div>
-        ) : (
+        {/* Top contribuintes */}
+        <div className="rounded-lg bg-gradient-to-br from-background/40 to-background/60 border border-border p-3">
+          <div className="text-xs text-muted-foreground mb-3 font-medium">Top Contribuintes</div>
           <div className="space-y-2">
-            {riskList.map((r) => (
-              <div key={r.name} className="flex items-center justify-between text-sm">
-                <div className="text-foreground">{r.name}</div>
-                <div className={r.pacePct < 85 ? 'text-dashboard-danger' : 'text-dashboard-warning'}>
-                  {r.atual.toLocaleString('pt-BR')} / {r.esperado.toLocaleString('pt-BR')} ({r.pacePct}%)
-                </div>
+            {topContrib.map((t, idx) => (
+              <div key={t.name} className="flex items-center justify-between text-sm">
+                <div className="text-foreground">{idx + 1}. {t.name}</div>
+                <div className="text-dashboard-info">{t.value.toLocaleString('pt-BR')} pts</div>
               </div>
             ))}
           </div>
-        )}
-      </div>
-
-      {/* Top contribuintes */}
-      <div className="rounded-lg bg-gradient-to-br from-background/40 to-background/60 border border-border p-4">
-        <div className="text-xs text-muted-foreground mb-2">Top Contribuintes</div>
-        <div className="space-y-2">
-          {topContrib.map((t, idx) => (
-            <div key={t.name} className="flex items-center justify-between text-sm">
-              <div className="text-foreground">{idx + 1}. {t.name}</div>
-              <div className="text-dashboard-info">{t.value.toLocaleString('pt-BR')} pts</div>
-            </div>
-          ))}
+          <div className="mt-2 text-xs text-muted-foreground">
+            Tendência: {trend.changePct >= 0 ? '+' : ''}{trend.changePct}% vs anterior
+          </div>
         </div>
-        <div className="mt-3 text-xs text-muted-foreground">Tendência 3m: {trend.changePct >= 0 ? '+' : ''}{trend.changePct}% vs mês anterior</div>
       </div>
     </div>
   );

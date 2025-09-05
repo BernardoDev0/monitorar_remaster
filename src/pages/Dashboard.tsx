@@ -38,7 +38,7 @@ const Dashboard = () => {
     monthPoints: 0,
     dailyGoal: 475,
     weeklyGoal: 2375,
-    monthlyGoal: 9500
+    monthlyGoal: 9500 // Será atualizado baseado no usuário
   });
   const { loading, startLoading, stopLoading, withLoading } = useLoading(true);
   const navigate = useNavigate();

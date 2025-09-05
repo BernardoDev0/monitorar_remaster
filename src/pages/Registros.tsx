@@ -55,7 +55,7 @@ interface EntryRecord {
   refinery: string;
   points: number;
   observations: string;
-  status: "completed" | "absent" | "pending";
+  status: "completed" | "absent" | "below_goal";
 }
 
 export default function Registros() {
@@ -112,7 +112,8 @@ export default function Registros() {
         refinery: entry.refinery,
         points: entry.points,
         observations: entry.observations,
-        status: entry.points > 0 ? "completed" : "absent"
+        status: entry.points === 0 ? "absent" : 
+                entry.points < 475 ? "below_goal" : "completed"
       })) || [];
 
       setRecords(transformedRecords);
@@ -211,7 +212,8 @@ export default function Registros() {
         'Pontos': record.points,
         'Observações': record.observations,
         'Status': record.status === 'completed' ? 'Concluído' : 
-                  record.status === 'absent' ? 'Ausente' : 'Pendente'
+                  record.status === 'absent' ? 'Ausente' : 
+                  record.status === 'below_goal' ? 'Abaixo da Meta' : 'Desconhecido'
       }));
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(exportData);
@@ -241,8 +243,8 @@ export default function Registros() {
         return <Badge variant="default" className="bg-dashboard-success/20 text-dashboard-success border-dashboard-success/30">Concluído</Badge>;
       case "absent":
         return <Badge variant="destructive">Ausente</Badge>;
-      case "pending":
-        return <Badge variant="secondary" className="bg-dashboard-warning/20 text-dashboard-warning border-dashboard-warning/30">Pendente</Badge>;
+      case "below_goal":
+        return <Badge variant="secondary" className="bg-orange-500/20 text-orange-500 border-orange-500/30 backdrop-blur-sm">Abaixo da Meta</Badge>;
       default:
         return <Badge variant="outline">Desconhecido</Badge>;
     }
@@ -311,7 +313,7 @@ export default function Registros() {
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-dashboard-success" />
-                <span className="text-sm font-medium text-foreground">Concluídos</span>
+                <span className="text-sm font-medium text-foreground">Meta Concluída</span>
               </div>
               <p className="text-2xl font-bold text-dashboard-success mt-2">{completedRecords}</p>
             </CardContent>
@@ -450,7 +452,11 @@ export default function Registros() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableLoading colSpan={8} message="Carregando registros..." />
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8">
+                    <InlineLoading text="Carregando registros..." />
+                  </TableCell>
+                </TableRow>
               ) : filteredRecords.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">

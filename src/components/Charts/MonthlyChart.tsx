@@ -18,6 +18,7 @@ interface MonthlyChartProps {
 }
 
 import { EMPLOYEE_COLORS } from "@/lib/constants";
+import { ReferenceLine } from "recharts";
 
 export function MonthlyChart({ data, hiddenEmployees, viewMode }: MonthlyChartProps) {
   if (viewMode === "individual") {
@@ -38,6 +39,8 @@ export function MonthlyChart({ data, hiddenEmployees, viewMode }: MonthlyChartPr
             fontSize={12}
             axisLine={false}
             tickLine={false}
+            domain={[0, 12000]}
+            ticks={[0, 2000, 4000, 6000, 8000, 10000, 12000]}
           />
           <Tooltip 
             contentStyle={{ 
@@ -67,6 +70,14 @@ export function MonthlyChart({ data, hiddenEmployees, viewMode }: MonthlyChartPr
               />
             )
           ))}
+          
+          {/* Linha da meta mensal individual */}
+          <ReferenceLine 
+            y={9500} 
+            stroke="hsl(var(--dashboard-warning))" 
+            strokeWidth={2}
+            strokeDasharray="5 5"
+          />
         </BarChart>
       </ResponsiveContainer>
     );

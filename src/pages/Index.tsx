@@ -114,13 +114,14 @@ const Index = () => {
           {
             title: "Total de Pontos Desta Semana",
             value: totalWeeklyPoints.toLocaleString(),
+            subtitle: `Faturamento: R$ ${(totalWeeklyPoints * 3.45).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
             icon: "trending" as const,
             variant: "primary" as const
           },
           {
             title: "Pontos Mensais Totais",
             value: `${(totalMonthlyPoints / 1000).toFixed(3)}`,
-            icon: "target" as const,
+            subtitle: `Faturamento: R$ ${(totalMonthlyPoints * 3.45).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
             variant: "default" as const
           },
           {
