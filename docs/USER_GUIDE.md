@@ -115,7 +115,7 @@ O dashboard é sua página principal, onde você pode:
 - **REMAN**: Refinaria de Manaus
 - **REDUC**: Refinaria Duque de Caxias
 - **REGAP**: Refinaria Gabriel Passos
-- **RELAN**: Refinaria de Landulpho Alves
+- **REPLAN**: Refinaria de Landulpho Alves
 - **RNEST**: Refinaria Nestor Câmara
 
 ##### Pontos

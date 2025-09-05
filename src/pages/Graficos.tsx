@@ -293,7 +293,7 @@ export default function Graficos() {
                     {ExcelProcessorService.formatCurrency(stats.totalRevenue)}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {selectedChart === 'weekly' ? 'no mês' : 'total'} (pontos × 3,45)
+                    {selectedChart === 'weekly' ? 'no mês' : 'total'} (pontos × 3,25)
                   </div>
                 </div>
               </CardContent>

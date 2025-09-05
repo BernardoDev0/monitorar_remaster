@@ -52,7 +52,7 @@ export function MonthlyChart({ data, hiddenEmployees, viewMode }: MonthlyChartPr
               fontSize: '14px'
             }}
             formatter={(value: any, name: string) => [
-              `${value} pontos (${ExcelProcessorService.formatCurrency(value * 3.45)})`,
+              `${value} pontos (${ExcelProcessorService.formatCurrency(value * 3.25)})`,
               name
             ]}
             cursor={{ fill: 'transparent' }}
@@ -94,7 +94,7 @@ export function MonthlyChart({ data, hiddenEmployees, viewMode }: MonthlyChartPr
       return {
         name: month.name,
         pontos: totalPoints,
-        lucro: totalPoints * 3.45,
+        lucro: totalPoints * 3.25,
         meta: 29500 // Meta mensal da equipe
       };
     });
@@ -127,7 +127,7 @@ export function MonthlyChart({ data, hiddenEmployees, viewMode }: MonthlyChartPr
             }}
             formatter={(value: any, name: string) => {
               if (name === 'pontos') {
-                return [`${value} pontos (${ExcelProcessorService.formatCurrency(value * 3.45)})`, 'Pontos Realizados'];
+                return [`${value} pontos (${ExcelProcessorService.formatCurrency(value * 3.25)})`, 'Pontos Realizados'];
               } else if (name === 'lucro') {
                 return [ExcelProcessorService.formatCurrency(value), 'Lucro Total'];
               }

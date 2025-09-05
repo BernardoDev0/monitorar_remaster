@@ -42,7 +42,7 @@ export function ExecutivePanel({ monthlyData, teamData, hiddenEmployees }: Execu
   const visibleTeam = useMemo(() => teamData.filter(t => t.name !== 'Rodrigo' && !hiddenEmployees.has(t.name)), [teamData, hiddenEmployees]);
 
   const totalPoints = useMemo(() => visibleTeam.reduce((s, r) => s + (r.value || 0), 0), [visibleTeam]);
-  const POINT_VALUE = 3.45;
+  const POINT_VALUE = 3.25;
   const metaEquipe = 29500; // 10.500 + 9.500 + 9.500 = 29.500
 
   // Projeções

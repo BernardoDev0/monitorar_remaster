@@ -124,7 +124,7 @@ export default function ExcelDashboard() {
 
   // Calcular lucro total
   const calculateProfit = (totalPoints: number): string => {
-    const profit = totalPoints * 3.45;
+    const profit = totalPoints * 3.25;
     return profit.toLocaleString('pt-BR', { 
       style: 'currency', 
       currency: 'BRL' 

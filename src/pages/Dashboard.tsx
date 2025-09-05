@@ -327,7 +327,7 @@ const Dashboard = () => {
                       { value: "REMAN", label: "REMAN" },
                       { value: "REDUC", label: "REDUC" },
                       { value: "REGAP", label: "REGAP" },
-                      { value: "RELAN", label: "RELAN" },
+                      { value: "REPLAN", label: "REPLAN" },
                       { value: "RNEST", label: "RNEST" }
                     ]}
                   />

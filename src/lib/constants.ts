@@ -91,7 +91,7 @@ export const TEAM_MONTHLY_GOAL = 29500;
 /**
  * Valor por ponto em reais
  */
-export const POINT_VALUE = 3.45;
+export const POINT_VALUE = 3.25;
 
 // ============================================================================
 // CONFIGURAÇÕES DE CICLOS

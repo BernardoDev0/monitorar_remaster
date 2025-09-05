@@ -29,12 +29,12 @@ export interface ProcessedExcelData {
     total_employees: number;
     total_records: number;
     total_points: number;
-    total_profit: number; // R$ 3.45 por ponto
+    total_profit: number; // R$ 3.25 por ponto
   };
 }
 
 export class ExcelProcessorService {
-  private static readonly POINT_VALUE = 3.45; // R$ 3,45 por ponto
+  private static readonly POINT_VALUE = 3.25; // R$ 3,25 por ponto
   private static readonly USE_COMPANY_CYCLE_FOR_LOCAL = true;
 
   static async processExcelFiles(files: FileList): Promise<ProcessedExcelData> {
