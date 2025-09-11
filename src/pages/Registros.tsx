@@ -60,7 +60,7 @@ interface EntryRecord {
 
 export default function Registros() {
   const { toast } = useToast();
-  const [selectedWeek, setSelectedWeek] = useState("todas");
+  const [selectedWeek, setSelectedWeek] = useState(String(CalculationsService.getCurrentWeek()));
   const [selectedEmployee, setSelectedEmployee] = useState("todos");
   const [searchTerm, setSearchTerm] = useState("");
   const [records, setRecords] = useState<EntryRecord[]>([]);

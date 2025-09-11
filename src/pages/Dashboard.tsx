@@ -28,7 +28,7 @@ interface DashboardMetrics {
 
 const Dashboard = () => {
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
-  const [selectedWeek, setSelectedWeek] = useState("1");
+  const [selectedWeek, setSelectedWeek] = useState(String(CalculationsService.getCurrentWeek()));
   const [pontos, setPontos] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [selectedRefinery, setSelectedRefinery] = useState("");
@@ -186,19 +186,21 @@ const Dashboard = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              <SelectField
-                label="Semana:"
-                value={selectedWeek}
-                onChange={setSelectedWeek}
-                options={[
-                  { value: "1", label: "Semana 1" },
-                  { value: "2", label: "Semana 2" },
-                  { value: "3", label: "Semana 3" },
-                  { value: "4", label: "Semana 4" },
-                  { value: "5", label: "Semana 5" }
-                ]}
-                className="w-32"
-              />
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-foreground">Semana:</span>
+                <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+                  <SelectTrigger className="w-32 bg-secondary border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Semana 1</SelectItem>
+                    <SelectItem value="2">Semana 2</SelectItem>
+                    <SelectItem value="3">Semana 3</SelectItem>
+                    <SelectItem value="4">Semana 4</SelectItem>
+                    <SelectItem value="5">Semana 5</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               
               <Button 
                 variant="outline" 

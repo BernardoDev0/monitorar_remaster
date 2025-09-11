@@ -18,7 +18,7 @@ interface EmployeeMetrics extends Employee {
 }
 
 const Index = () => {
-  const [selectedWeek, setSelectedWeek] = useState("1");
+  const [selectedWeek, setSelectedWeek] = useState(String(CalculationsService.getCurrentWeek()));
   const [employees, setEmployees] = useState<EmployeeMetrics[]>([]);
   const { loading, withLoading } = useLoading(true);
   const navigate = useNavigate();
