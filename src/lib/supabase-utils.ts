@@ -305,6 +305,19 @@ export async function batchInsertEntries(entries: Array<{
 }
 
 /**
+ * Mapeamento de funcionários para emails (mesmo da Edge Function)
+ */
+function getRecipientEmail(employeeName: string): string | null {
+  const map: Record<string, string> = {
+    'Rodrigo': 'rodrigo@monitorarconsultoria.com.br',
+    'Maurício': 'carlos.mauricio.prestserv@petrobras.com.br',
+    'Matheus': 'Matheus.e.lima.prestserv@petrobras.com.br',
+    'Wesley': 'Wesley_fgc@hotmail.com'
+  };
+  return map[employeeName] || null;
+}
+
+/**
  * Utilitário para operações de email queue
  */
 export async function addToEmailQueue(payload: {
@@ -314,10 +327,22 @@ export async function addToEmailQueue(payload: {
   refinery: string
   observations?: string
 }) {
+  const recipientEmail = getRecipientEmail(payload.employee_name);
+  
+  if (!recipientEmail) {
+    return {
+      data: null,
+      error: { message: `Email não encontrado para o funcionário: ${payload.employee_name}` } as any,
+      success: false
+    };
+  }
+
   return executeQuery(
     () => supabase
       .from('email_queue')
       .insert([{
+        recipient_email: recipientEmail,
+        recipient_name: payload.employee_name,
         employee_name: payload.employee_name,
         date: payload.date,
         points: payload.points,
