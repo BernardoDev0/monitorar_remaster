@@ -318,8 +318,12 @@ export async function addToEmailQueue(payload: {
     () => supabase
       .from('email_queue')
       .insert([{
+        employee_name: payload.employee_name,
+        date: payload.date,
+        points: payload.points,
+        refinery: payload.refinery,
+        observations: payload.observations || '',
         status: 'pending',
-        payload: JSON.stringify(payload),
         created_at: new Date().toISOString()
       }]),
     'Adicionar à fila de email'
