@@ -1,11 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import { PostgrestError } from '@supabase/supabase-js'
 
-/**
- * Utilitários compartilhados para operações com Supabase
- * Centraliza padrões comuns de query, error handling e cache
- */
-
 // Tipos base
 export interface SupabaseResponse<T> {
   data: T | null
@@ -27,9 +22,7 @@ export interface EmployeeFilters extends PaginationOptions, DateRangeFilter {
   employeeId?: number
 }
 
-/**
- * Wrapper genérico para queries do Supabase com tratamento de erro padronizado
- */
+// Wrapper genérico para queries do Supabase
 export async function executeQuery<T>(
   queryFn: () => Promise<{ data: T | null; error: PostgrestError | null }>,
   errorContext: string = 'Operação'
@@ -50,9 +43,7 @@ export async function executeQuery<T>(
   }
 }
 
-/**
- * Busca todos os funcionários com cache e ordenação
- */
+// Busca todos os funcionários
 export async function getAllEmployees() {
   return executeQuery(
     () => supabase
@@ -63,9 +54,7 @@ export async function getAllEmployees() {
   )
 }
 
-/**
- * Busca funcionário por ID
- */
+// Busca funcionário por ID
 export async function getEmployeeById(id: number) {
   return executeQuery(
     () => supabase
@@ -77,9 +66,7 @@ export async function getEmployeeById(id: number) {
   )
 }
 
-/**
- * Busca funcionário por chave de acesso
- */
+// Busca funcionário por chave de acesso
 export async function getEmployeeByAccessKey(accessKey: string) {
   return executeQuery(
     () => supabase
@@ -91,9 +78,7 @@ export async function getEmployeeByAccessKey(accessKey: string) {
   )
 }
 
-/**
- * Busca entradas com filtros flexíveis
- */
+// Busca entradas com filtros
 export async function getEntries(filters: EmployeeFilters = {}) {
   return executeQuery(
     () => {
@@ -128,9 +113,7 @@ export async function getEntries(filters: EmployeeFilters = {}) {
   )
 }
 
-/**
- * Busca entradas de um funcionário específico
- */
+// Busca entradas de um funcionário específico
 export async function getEmployeeEntries(
   employeeId: number,
   options: PaginationOptions & DateRangeFilter = {}
@@ -138,9 +121,7 @@ export async function getEmployeeEntries(
   return getEntries({ ...options, employeeId })
 }
 
-/**
- * Cria nova entrada
- */
+// Cria nova entrada
 export async function createEntry(entry: {
   employee_id: number
   date: string
@@ -158,9 +139,7 @@ export async function createEntry(entry: {
   )
 }
 
-/**
- * Atualiza entrada existente
- */
+// Atualiza entrada existente
 export async function updateEntry(
   id: number,
   updates: Partial<{
@@ -181,9 +160,7 @@ export async function updateEntry(
   )
 }
 
-/**
- * Deleta entrada
- */
+// Deleta entrada
 export async function deleteEntry(id: number) {
   return executeQuery(
     () => supabase
@@ -194,16 +171,12 @@ export async function deleteEntry(id: number) {
   )
 }
 
-/**
- * Busca entradas por range de datas
- */
+// Busca entradas por range de datas
 export async function getEntriesByDateRange(startDate: string, endDate: string) {
   return getEntries({ start: startDate, end: endDate })
 }
 
-/**
- * Conta total de entradas com filtros
- */
+// Conta total de entradas
 export async function countEntries(filters: Omit<EmployeeFilters, 'limit' | 'offset'> = {}) {
   return executeQuery(
     () => {
@@ -229,9 +202,7 @@ export async function countEntries(filters: Omit<EmployeeFilters, 'limit' | 'off
   )
 }
 
-/**
- * Soma pontos por funcionário em um período
- */
+// Soma pontos por funcionário
 export async function sumPointsByEmployee(
   employeeId: number,
   startDate?: string,
@@ -258,9 +229,7 @@ export async function sumPointsByEmployee(
   )
 }
 
-/**
- * Busca estatísticas agregadas por funcionário
- */
+// Estatísticas agregadas por funcionário
 export async function getEmployeeStats(employeeId: number, dateRange?: DateRangeFilter) {
   const entriesResult = await getEmployeeEntries(employeeId, dateRange)
   
@@ -285,9 +254,7 @@ export async function getEmployeeStats(employeeId: number, dateRange?: DateRange
   }
 }
 
-/**
- * Utilitário para batch operations
- */
+// Batch operations
 export async function batchInsertEntries(entries: Array<{
   employee_id: number
   date: string
@@ -304,22 +271,18 @@ export async function batchInsertEntries(entries: Array<{
   )
 }
 
-/**
- * Mapeamento de funcionários para emails (mesmo da Edge Function)
- */
+// Mapeamento de funcionários para emails
 function getRecipientEmail(employeeName: string): string | null {
-  const map: Record<string, string> = {
+  const emailMap: Record<string, string> = {
     'Rodrigo': 'rodrigo@monitorarconsultoria.com.br',
     'Maurício': 'carlos.mauricio.prestserv@petrobras.com.br',
     'Matheus': 'Matheus.e.lima.prestserv@petrobras.com.br',
     'Wesley': 'Wesley_fgc@hotmail.com'
-  };
-  return map[employeeName] || null;
+  }
+  return emailMap[employeeName] || null
 }
 
-/**
- * Utilitário para operações de email queue
- */
+// Adicionar à fila de email
 export async function addToEmailQueue(payload: {
   employee_name: string
   date: string
@@ -327,14 +290,14 @@ export async function addToEmailQueue(payload: {
   refinery: string
   observations?: string
 }) {
-  const recipientEmail = getRecipientEmail(payload.employee_name);
+  const recipientEmail = getRecipientEmail(payload.employee_name)
   
   if (!recipientEmail) {
     return {
       data: null,
       error: { message: `Email não encontrado para o funcionário: ${payload.employee_name}` } as any,
       success: false
-    };
+    }
   }
 
   return executeQuery(
@@ -355,9 +318,7 @@ export async function addToEmailQueue(payload: {
   )
 }
 
-/**
- * Marca email como processado
- */
+// Marcar email como processado
 export async function markEmailAsProcessed(id: string) {
   return executeQuery(
     () => supabase
@@ -368,9 +329,7 @@ export async function markEmailAsProcessed(id: string) {
   )
 }
 
-/**
- * Marca email como falhado
- */
+// Marcar email como falhado
 export async function markEmailAsFailed(id: string, errorMessage: string) {
   return executeQuery(
     () => supabase
@@ -384,13 +343,11 @@ export async function markEmailAsFailed(id: string, errorMessage: string) {
   )
 }
 
-/**
- * Cache simples em memória para queries frequentes
- */
+// Cache simples
 class SimpleCache {
   private cache = new Map<string, { data: any; timestamp: number }>()
-  private ttl = 5 * 60 * 1000 // 5 minutos
-  
+  private ttl = 5 * 60 * 1000
+
   get<T>(key: string): T | null {
     const item = this.cache.get(key)
     if (!item) return null
@@ -414,9 +371,7 @@ class SimpleCache {
 
 export const queryCache = new SimpleCache()
 
-/**
- * Wrapper com cache para queries de funcionários
- */
+// Wrapper com cache para funcionários
 export async function getCachedEmployees() {
   const cacheKey = 'all_employees'
   const cached = queryCache.get(cacheKey)
