@@ -282,7 +282,7 @@ function getRecipientEmail(employeeName: string): string | null {
   return emailMap[employeeName] || null
 }
 
-// Adicionar à fila de email
+// Adicionar à fila de email via Edge Function (que tem permissão)
 export async function addToEmailQueue(payload: {
   employee_name: string
   date: string
@@ -290,32 +290,39 @@ export async function addToEmailQueue(payload: {
   refinery: string
   observations?: string
 }) {
-  const recipientEmail = getRecipientEmail(payload.employee_name)
-  
-  if (!recipientEmail) {
-    return {
-      data: null,
-      error: { message: `Email não encontrado para o funcionário: ${payload.employee_name}` } as any,
-      success: false
-    }
-  }
-
-  return executeQuery(
-    () => supabase
-      .from('email_queue')
-      .insert([{
-        recipient_email: recipientEmail,
-        recipient_name: payload.employee_name,
+  try {
+    const { data, error } = await supabase.functions.invoke('send-confirmation-email', {
+      body: {
         employee_name: payload.employee_name,
         date: payload.date,
         points: payload.points,
         refinery: payload.refinery,
-        observations: payload.observations || '',
-        status: 'pending',
-        created_at: new Date().toISOString()
-      }]),
-    'Adicionar à fila de email'
-  )
+        observations: payload.observations || ''
+      }
+    })
+
+    if (error) {
+      console.error('Erro ao chamar Edge Function:', error)
+      return {
+        data: null,
+        error: error,
+        success: false
+      }
+    }
+
+    return {
+      data: data,
+      error: null,
+      success: true
+    }
+  } catch (err) {
+    console.error('Erro inesperado na Edge Function:', err)
+    return {
+      data: null,
+      error: { message: String(err) } as any,
+      success: false
+    }
+  }
 }
 
 // Marcar email como processado
