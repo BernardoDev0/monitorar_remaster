@@ -342,6 +342,11 @@ export async function addToEmailQueue(payload: {
       .from('email_queue')
       .insert([{
 <<<<<<< Current (Your changes)
+<<<<<<< Current (Your changes)
+=======
+        recipient_email: recipientEmail,
+        recipient_name: payload.employee_name,
+>>>>>>> Incoming (Background Agent changes)
 =======
         recipient_email: recipientEmail,
         recipient_name: payload.employee_name,
