@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type Database = {
+export interface Database {
   public: {
     Tables: {
       email_queue: {
@@ -19,7 +19,7 @@ export type Database = {
           refinery: string | null
           points: number | null
           observations: string | null
-          status: 'pending' | 'sent' | 'failed'
+          status: string
           error: string | null
           created_at: string
           sent_at: string | null
@@ -34,7 +34,7 @@ export type Database = {
           refinery?: string | null
           points?: number | null
           observations?: string | null
-          status?: 'pending' | 'sent' | 'failed'
+          status?: string
           error?: string | null
           created_at?: string
           sent_at?: string | null
@@ -49,7 +49,7 @@ export type Database = {
           refinery?: string | null
           points?: number | null
           observations?: string | null
-          status?: 'pending' | 'sent' | 'failed'
+          status?: string
           error?: string | null
           created_at?: string
           sent_at?: string | null
