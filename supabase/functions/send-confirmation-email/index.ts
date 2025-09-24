@@ -26,6 +26,22 @@ function getRecipient(name: string): string | undefined {
   return map[name];
 }
 
+function formatDate(dateString: string): string {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return dateString; // fallback se não conseguir formatar
+  }
+}
+
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: { ...corsHeaders } });
@@ -83,7 +99,7 @@ serve(async (req: Request) => {
         <p>Seu ponto foi registrado com sucesso:</p>
         
         <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0;">
-            <p><strong>📅 Data/Hora:</strong> ${payload.date}</p>
+            <p><strong>📅 Data/Hora:</strong> ${formatDate(payload.date)}</p>
             <p><strong>🏭 Refinaria:</strong> ${payload.refinery}</p>
             <p><strong>📊 Pontos:</strong> ${payload.points}</p>
             <p><strong>📝 Observações:</strong> ${payload.observations || 'Nenhuma observação'}</p>
@@ -111,7 +127,7 @@ serve(async (req: Request) => {
             to: [to],
             subject: 'Confirmação de Ponto Registrado',
             html: emailHtml,
-            text: `Olá ${payload.employee_name},\n\nSeu ponto foi registrado com sucesso:\n\nData/Hora: ${payload.date}\nRefinaria: ${payload.refinery}\nPontos: ${payload.points}\nObservações: ${payload.observations || 'Nenhuma observação'}\n\nAtenciosamente,\nSistema de Pontos`
+            text: `Olá ${payload.employee_name},\n\nSeu ponto foi registrado com sucesso:\n\nData/Hora: ${formatDate(payload.date)}\nRefinaria: ${payload.refinery}\nPontos: ${payload.points}\nObservações: ${payload.observations || 'Nenhuma observação'}\n\nAtenciosamente,\nSistema de Pontos`
           })
         });
 
