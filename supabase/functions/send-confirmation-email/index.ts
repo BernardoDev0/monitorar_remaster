@@ -77,9 +77,11 @@ serve(async (req: Request) => {
     });
 
     console.log(`[send-confirmation-email] Processing email for: ${to} (employee: ${payload.employee_name})`);
+    console.log(`[send-confirmation-email] Original date: ${payload.date}, Formatted: ${formatDate(payload.date)}`);
 
     // Tentar alternativa GRATUITA: Resend.com (3000 emails/mês grátis)
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+    console.log(`[send-confirmation-email] RESEND_API_KEY exists: ${!!RESEND_API_KEY}`);
     
     if (RESEND_API_KEY) {
       try {
@@ -156,6 +158,7 @@ serve(async (req: Request) => {
     }
 
     // Fallback: Armazenar no banco para o frontend processar com EmailJS
+    console.log(`[send-confirmation-email] 🔄 Fallback: Adding to email_queue for: ${to}`);
     try {
       const { data: notification, error: dbError } = await supabase
         .from('email_queue')
