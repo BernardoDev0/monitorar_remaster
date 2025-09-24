@@ -28,6 +28,22 @@ function getRecipient(name?: string): string | undefined {
   return map[name];
 }
 
+function formatDate(dateString: string): string {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return dateString; // fallback se não conseguir formatar
+  }
+}
+
 function ensureEmailJsInit() {
   if (EMAILJS_PUBLIC_KEY) {
     try {
@@ -87,7 +103,7 @@ function buildTemplateParams(item: any) {
     email: toEmail, // compatibilidade, caso o template use {{email}}
     to_name: item.recipient_name || item.employee_name,
     employee_name: item.employee_name,
-    date: item.date,
+    date: formatDate(item.date),
     refinery: item.refinery,
     points: String(item.points ?? ''),
     observations: item.observations || 'Nenhuma observação',
