@@ -28,3 +28,21 @@ Observações:
 - "26/03" até "31/03" contam para abril; não entram em março.
 - "26/12" até "31/12" contam para janeiro do próximo ano.
 - Os gráficos mensais devem sempre exibir os valores agregados com base nessa convenção (26→25).
+
+exemplo:
+
+mes com 31 dias:
+
+26-01
+02-08
+09-15
+16-22
+23-25
+
+mes com 30 dias:
+
+26-02
+03-09
+10-16
+17-23
+24-25

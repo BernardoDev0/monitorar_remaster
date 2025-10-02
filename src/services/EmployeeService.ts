@@ -162,9 +162,14 @@ export class EmployeeService {
       endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
       const endExclusiveStr = formatDateISO(endExclusive);
 
+      console.log('🔍 QUERY SEMANAL - Employee:', employeeId);
+      console.log('🔍 QUERY SEMANAL - Start:', weekDates.start);
+      console.log('🔍 QUERY SEMANAL - End Original:', weekDates.end);
+      console.log('🔍 QUERY SEMANAL - End Exclusive:', endExclusiveStr);
+
       const { data, error } = await supabase
         .from('entry')
-        .select('points')
+        .select('points, date')
         .eq('employee_id', employeeId)
         .gte('date', weekDates.start)
         .lt('date', endExclusiveStr);
@@ -174,7 +179,12 @@ export class EmployeeService {
         return 0;
       }
 
-      return data?.reduce((total, entry) => total + (entry.points || 0), 0) || 0;
+      console.log('🔍 DADOS SEMANAIS ENCONTRADOS:', data?.length, 'registros');
+      console.log('🔍 PRIMEIROS 5 REGISTROS:', data?.slice(0, 5));
+      const total = data?.reduce((total, entry) => total + (entry.points || 0), 0) || 0;
+      console.log('🔍 TOTAL SEMANAL CALCULADO:', total);
+      
+      return total;
     } catch (error) {
       console.error('Erro ao calcular pontos da semana:', error);
       return 0;
@@ -189,9 +199,14 @@ export class EmployeeService {
       endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
       const endExclusiveStr = formatDateISO(endExclusive);
 
+      console.log('🔍 QUERY MENSAL - Employee:', employeeId);
+      console.log('🔍 QUERY MENSAL - Start:', monthDates.start);
+      console.log('🔍 QUERY MENSAL - End Original:', monthDates.end);
+      console.log('🔍 QUERY MENSAL - End Exclusive:', endExclusiveStr);
+
       const { data, error } = await supabase
         .from('entry')
-        .select('points')
+        .select('points, date')
         .eq('employee_id', employeeId)
         .gte('date', monthDates.start)
         .lt('date', endExclusiveStr);
@@ -201,7 +216,12 @@ export class EmployeeService {
         return 0;
       }
 
-      return data?.reduce((total, entry) => total + (entry.points || 0), 0) || 0;
+      console.log('🔍 DADOS MENSAIS ENCONTRADOS:', data?.length, 'registros');
+      console.log('🔍 PRIMEIROS 5 REGISTROS:', data?.slice(0, 5));
+      const total = data?.reduce((total, entry) => total + (entry.points || 0), 0) || 0;
+      console.log('🔍 TOTAL MENSAL CALCULADO:', total);
+      
+      return total;
     } catch (error) {
       console.error('Erro ao calcular pontos mensais:', error);
       return 0;

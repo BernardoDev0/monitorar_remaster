@@ -25,29 +25,38 @@ const Index = () => {
 
   // Carregar dados dos funcionários
   const loadEmployeesData = async () => {
+    console.log('🔄 INICIANDO CARREGAMENTO:', new Date().toISOString());
     await withLoading(async () => {
       const allEmployees = await EmployeeService.getAllEmployees();
       
       // Calcular métricas para cada funcionário
       const employeesWithMetrics = await Promise.all(
         allEmployees.map(async (employee) => {
-          const weekDates = CalculationsService.getWeekDates(selectedWeek);
-          const monthDates = CalculationsService.getMonthCycleDates();
-          
-          const weeklyPoints = await EmployeeService.getWeekPoints(employee.id, weekDates);
-          console.log('DEBUG - Pontos semanais:', employee.real_name, weeklyPoints, 'Período:', weekDates.start, 'até', weekDates.end);
-          
-          // CORREÇÃO: Pontos mensais devem ser apenas até hoje, não do mês inteiro
-          // FORÇAR timezone de São Paulo para funcionar no Vercel
+          // CORREÇÃO: Pontos mensais = do início do ciclo até HOJE
+          // Pontos semanais = apenas da semana selecionada
           const today = new Date();
           const saoPauloDate = new Date(today.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
           const localDateYYYYMMDD = `${saoPauloDate.getFullYear()}-${(saoPauloDate.getMonth() + 1).toString().padStart(2, '0')}-${saoPauloDate.getDate().toString().padStart(2, '0')}`;
-          console.log('DEBUG - Hoje (São Paulo):', localDateYYYYMMDD);
-          const monthlyPoints = await EmployeeService.getMonthPoints(employee.id, {
-            start: monthDates.start,
-            end: localDateYYYYMMDD // Usar a data local formatada
-          });
-          console.log('DEBUG - Pontos mensais:', employee.real_name, monthlyPoints, 'Período:', monthDates.start, 'até', localDateYYYYMMDD);
+          
+          const weekDates = CalculationsService.getWeekDates(selectedWeek);
+          const monthDates = CalculationsService.getMonthCycleDates();
+          
+          console.log('🔍 SEMANA 1 DATAS:', weekDates.start, 'até', weekDates.end);
+          console.log('🔍 MÊS DATAS:', monthDates.start, 'até', monthDates.end);
+          console.log('🔍 HOJE É:', localDateYYYYMMDD);
+          
+          const weeklyPoints = await EmployeeService.getWeekPoints(employee.id, weekDates);
+          console.log('🔍 PONTOS SEMANAIS:', employee.real_name, weeklyPoints);
+          
+          // SIMPLIFICADO: Somar TODOS os pontos do ciclo mensal atual (26/09 até 25/10)
+          const monthlyPoints = await EmployeeService.getMonthPoints(employee.id, monthDates);
+          
+          console.log('🔍 PONTOS MENSAIS:', employee.real_name, monthlyPoints);
+          console.log('🔍 PERÍODO MENSAL:', monthDates.start, 'até', monthDates.end);
+          
+          console.log('🔍 COMPARAÇÃO FINAL:');
+          console.log('🔍 Semanal vs Mensal:', weeklyPoints, 'vs', monthlyPoints);
+          console.log('🔍 Diferença:', weeklyPoints - monthlyPoints);
           
           const weeklyGoal = CalculationsService.getWeeklyGoal(employee);
           const monthlyGoal = CalculationsService.getMonthlyGoal(employee);
@@ -59,6 +68,13 @@ const Index = () => {
           const status: EmployeeMetrics["status"] =
             computedStatus === "top-performer" ? "above" :
             computedStatus === "on-track" ? "on-track" : "below";
+          
+          console.log('🔍 OBJETO FINAL CRIADO:', employee.real_name, {
+            weeklyPoints,
+            monthlyPoints,
+            weeklyGoal,
+            monthlyGoal
+          });
           
           return {
             ...employee,
@@ -96,10 +112,21 @@ const Index = () => {
 
   // Calcular métricas totais
   const filteredEmployees = employees.filter(emp => (emp.real_name || emp.name) !== 'Rodrigo');
+  
+  console.log('🔍 FUNCIONÁRIOS FILTRADOS:', filteredEmployees.map(emp => ({
+    name: emp.real_name || emp.name,
+    weeklyPoints: emp.weeklyPoints,
+    monthlyPoints: emp.monthlyPoints
+  })));
+  
   const totalWeeklyPoints = filteredEmployees.reduce((sum, emp) => sum + emp.weeklyPoints, 0);
   const totalMonthlyPoints = filteredEmployees.reduce((sum, emp) => sum + emp.monthlyPoints, 0);
-  console.log('DEBUG - Total de Pontos Semanais Agregados:', totalWeeklyPoints);
-  console.log('DEBUG - Total de Pontos Mensais Agregados:', totalMonthlyPoints);
+  
+  // LOG TEMPORÁRIO PARA DEBUG
+  console.log('🔍 DEBUG FINAL:');
+  console.log('Total Semanal:', totalWeeklyPoints);
+  console.log('Total Mensal:', totalMonthlyPoints);
+  console.log('São iguais?', totalWeeklyPoints === totalMonthlyPoints);
   const totalMonthlyGoal = 29500; // Meta mensal fixa da equipe (exclui Rodrigo)
   
   // CORREÇÃO: Progresso da equipe deve ser baseado nos pontos semanais, não mensais

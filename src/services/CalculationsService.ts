@@ -76,50 +76,97 @@ export class CalculationsService {
     }
 
     const today = new Date();
-    const currentMonth = today.getMonth() + 1; // getMonth() returns 0-11
-    const currentYear = today.getFullYear();
+    // FORÇAR timezone de São Paulo para funcionar no Vercel
+    const saoPauloDate = new Date(today.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+    const currentDay = saoPauloDate.getDate();
+    const currentMonth = saoPauloDate.getMonth() + 1; // 1-12
+    const currentYear = saoPauloDate.getFullYear();
     
-    // Lógica baseada no ciclo 26→25
-    let cycleYear = currentYear;
-    let cycleMonth = currentMonth;
-
-    // Se já passou do dia 25, estamos no próximo ciclo
-    if (today.getDate() >= 26) {
-      // Manter mês atual - já está no próximo ciclo
-      cycleMonth = currentMonth;
+    // Usar a mesma lógica do getMonthCycleDates()
+    let endMonth: number;
+    let endYear: number;
+    
+    if (currentDay >= 1 && currentDay <= 25) {
+      // Dias 1-25: estamos no ciclo que TERMINA no mês atual
+      endMonth = currentMonth;
+      endYear = currentYear;
     } else {
-      // Ir para ciclo anterior
-      cycleMonth -= 1;
-      if (cycleMonth < 1) {
-        cycleMonth = 12;
-        cycleYear -= 1;
+      // Dias 26-31: estamos no ciclo que TERMINA no próximo mês
+      endMonth = currentMonth + 1;
+      endYear = currentYear;
+      if (endMonth > 12) {
+        endMonth = 1;
+        endYear += 1;
       }
     }
 
-    // Calcular início e fim do ciclo
-    const cycleStart = new Date(cycleYear, cycleMonth - 1, 26);
-    const cycleEnd = new Date(cycleYear, cycleMonth, 25); // Mês seguinte, dia 25
+    // Início do ciclo: dia 26 do mês anterior ao mês de término
+    let startMonth = endMonth - 1;
+    let startYear = endYear;
+    if (startMonth < 1) {
+      startMonth = 12;
+      startYear -= 1;
+    }
+    
+    const cycleStart = new Date(startYear, startMonth - 1, 26);
+    const cycleEnd = new Date(endYear, endMonth - 1, 25);
     
     // Calcular total de dias no ciclo
     const totalDays = Math.floor((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
-    // Distribuir em 5 semanas de forma equilibrada
-    const daysPerWeek = Math.floor(totalDays / 5);
-    const extraDays = totalDays % 5;
-    
-    // Calcular início da semana solicitada
+    // CORREÇÃO: Semana 1 SEMPRE tem 7 dias, as outras se ajustam
     let weekStartDate = new Date(cycleStart);
     let daysToAdd = 0;
+    let weekDays: number;
     
-    for (let i = 1; i < weekNum; i++) {
-      const weekDays = daysPerWeek + (i <= extraDays ? 1 : 0);
-      daysToAdd += weekDays;
+    if (weekNum === 1) {
+      // Semana 1: FORÇAR 7 dias (26/09 até 02/10)
+      weekDays = 7;
+      daysToAdd = 0; // Começa no início do ciclo
+      
+      // FORÇAR o fim da semana 1 para ser exatamente 7 dias após o início
+      const weekEndDate = new Date(cycleStart);
+      weekEndDate.setDate(cycleStart.getDate() + 6); // +6 porque inclui o dia inicial
+      
+      console.log('🔧 SEMANA 1 FORÇADA:');
+      console.log('🔧 Início:', formatDateISO(cycleStart));
+      console.log('🔧 Fim:', formatDateISO(weekEndDate));
+      console.log('🔧 Dias calculados:', Math.floor((weekEndDate.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+      
+      return {
+        start: formatDateISO(cycleStart),
+        end: formatDateISO(weekEndDate)
+      };
+    } else {
+      // Para semanas 2-5: distribuir os dias restantes
+      const remainingDays = totalDays - 7; // Dias após a semana 1
+      const remainingWeeks = 4; // Semanas 2, 3, 4, 5
+      const baseDaysPerWeek = Math.floor(remainingDays / remainingWeeks);
+      const extraDays = remainingDays % remainingWeeks;
+      
+      // Semana 1 já tem 7 dias
+      daysToAdd = 7;
+      
+      // Somar dias das semanas anteriores (2 até weekNum-1)
+      for (let i = 2; i < weekNum; i++) {
+        const weekDaysForLoop = baseDaysPerWeek + (i - 1 <= extraDays ? 1 : 0);
+        daysToAdd += weekDaysForLoop;
+      }
+      
+      // Calcular dias desta semana
+      weekDays = baseDaysPerWeek + (weekNum - 1 <= extraDays ? 1 : 0);
     }
     
     weekStartDate.setDate(cycleStart.getDate() + daysToAdd);
     
-    // Calcular fim da semana
-    const weekDays = daysPerWeek + (weekNum <= extraDays ? 1 : 0);
+    console.log('🔧 CÁLCULO SEMANA:', weekNum);
+    console.log('🔧 Total dias no ciclo:', totalDays);
+    console.log('🔧 Dias por semana base:', Math.floor(totalDays / 5));
+    console.log('🔧 Dias extras:', totalDays % 5);
+    console.log('🔧 Dias desta semana:', weekDays);
+    console.log('🔧 Início da semana:', weekStartDate.toISOString().split('T')[0]);
+    console.log('🔧 Fim da semana:', new Date(weekStartDate.getTime() + (weekDays - 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+    
     const weekEndDate = new Date(weekStartDate);
     weekEndDate.setDate(weekStartDate.getDate() + weekDays - 1);
 
@@ -138,23 +185,35 @@ export class CalculationsService {
     const currentMonth = saoPauloDate.getMonth() + 1;
     const currentYear = saoPauloDate.getFullYear();
 
-    // Determinar início do ciclo atual (dia 26)
-    let cycleYear = currentYear;
-    let cycleMonth = currentMonth;
-
-    // CORREÇÃO: Se dia <= 25, estamos no ciclo que TERMINA neste mês
-    // Se dia >= 26, estamos no ciclo que COMEÇOU neste mês
-    if (currentDay >= 26) {
-      // Estamos no ciclo que COMEÇOU neste mês - manter mês atual
-      cycleMonth = currentMonth;
+    // Usar a mesma lógica do getMonthCycleDates()
+    let endMonth: number;
+    let endYear: number;
+    
+    if (currentDay >= 1 && currentDay <= 25) {
+      // Dias 1-25: estamos no ciclo que TERMINA no mês atual
+      endMonth = currentMonth;
+      endYear = currentYear;
     } else {
-      // Estamos no ciclo que TERMINA neste mês - usar mês atual
-      cycleMonth = currentMonth;
+      // Dias 26-31: estamos no ciclo que TERMINA no próximo mês
+      endMonth = currentMonth + 1;
+      endYear = currentYear;
+      if (endMonth > 12) {
+        endMonth = 1;
+        endYear += 1;
+      }
+    }
+
+    // Início do ciclo: dia 26 do mês anterior ao mês de término
+    let startMonth = endMonth - 1;
+    let startYear = endYear;
+    if (startMonth < 1) {
+      startMonth = 12;
+      startYear -= 1;
     }
 
     // Calcular início e fim do ciclo
-    const cycleStart = new Date(cycleYear, cycleMonth - 1, 26);
-    const cycleEnd = new Date(cycleYear, cycleMonth, 25); // Mês seguinte, dia 25
+    const cycleStart = new Date(startYear, startMonth - 1, 26);
+    const cycleEnd = new Date(endYear, endMonth - 1, 25);
     
     // Calcular total de dias no ciclo
     const totalDays = Math.floor((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -198,9 +257,26 @@ export class CalculationsService {
       endMonth = month; // mês de término informado (1-12)
       endYear = year;
     } else {
-      // CORREÇÃO: Ciclo atual sempre termina no mês atual (se hoje é outubro, ciclo termina em outubro)
-      endMonth = saoPauloDate.getMonth() + 1;
-      endYear = saoPauloDate.getFullYear();
+      // CORREÇÃO FINAL: Lógica baseada no LOGICA_CICLO_EMPRESA.md
+      // Dias 1-25 pertencem ao mês corrente (mês de término)
+      // Dias 26-31 pertencem ao mês seguinte (mês de término)
+      const currentDay = saoPauloDate.getDate();
+      const currentMonth = saoPauloDate.getMonth() + 1; // 1-12
+      const currentYear = saoPauloDate.getFullYear();
+      
+      if (currentDay >= 1 && currentDay <= 25) {
+        // Dias 1-25: estamos no ciclo que TERMINA no mês atual
+        endMonth = currentMonth;
+        endYear = currentYear;
+      } else {
+        // Dias 26-31: estamos no ciclo que TERMINA no próximo mês
+        endMonth = currentMonth + 1;
+        endYear = currentYear;
+        if (endMonth > 12) {
+          endMonth = 1;
+          endYear += 1;
+        }
+      }
     }
 
     // Início do ciclo: dia 26 do mês anterior ao mês de término
@@ -213,6 +289,13 @@ export class CalculationsService {
 
     const cycleStart = new Date(startYear, startMonth - 1, 26);
     const cycleEnd = new Date(endYear, endMonth - 1, 25);
+
+    console.log('🔧 CICLO MENSAL CALCULADO (CORRIGIDO):');
+    console.log('🔧 Data atual:', saoPauloDate.toISOString().split('T')[0]);
+    console.log('🔧 Dia atual:', saoPauloDate.getDate());
+    console.log('🔧 Mês de término:', endMonth, '/', endYear);
+    console.log('🔧 Início do ciclo:', formatDateISO(cycleStart));
+    console.log('🔧 Fim do ciclo:', formatDateISO(cycleEnd));
 
     return {
       start: formatDateISO(cycleStart),
@@ -227,26 +310,35 @@ export class CalculationsService {
     const month = date.getMonth() + 1;
     const year = date.getFullYear();
 
-    // Encontrar início do ciclo mensal para esta data (sempre dia 26)
-    let cycleYear = year;
-    let cycleMonth = month;
-
-    // Se já passou do dia 25, pertence ao próximo ciclo
-    if (day >= 26) {
-      // Manter mês atual - já está no próximo ciclo
-      cycleMonth = month;
+    // Usar a mesma lógica do getMonthCycleDates()
+    let endMonth: number;
+    let endYear: number;
+    
+    if (day >= 1 && day <= 25) {
+      // Dias 1-25: estamos no ciclo que TERMINA no mês atual
+      endMonth = month;
+      endYear = year;
     } else {
-      // Ir para ciclo anterior
-      cycleMonth -= 1;
-      if (cycleMonth < 1) {
-        cycleMonth = 12;
-        cycleYear -= 1;
+      // Dias 26-31: estamos no ciclo que TERMINA no próximo mês
+      endMonth = month + 1;
+      endYear = year;
+      if (endMonth > 12) {
+        endMonth = 1;
+        endYear += 1;
       }
     }
 
+    // Início do ciclo: dia 26 do mês anterior ao mês de término
+    let startMonth = endMonth - 1;
+    let startYear = endYear;
+    if (startMonth < 1) {
+      startMonth = 12;
+      startYear -= 1;
+    }
+
     // Calcular início e fim do ciclo
-    const cycleStart = new Date(cycleYear, cycleMonth - 1, 26);
-    const cycleEnd = new Date(cycleYear, cycleMonth, 25); // Mês seguinte, dia 25
+    const cycleStart = new Date(startYear, startMonth - 1, 26);
+    const cycleEnd = new Date(endYear, endMonth - 1, 25);
     
     // Calcular total de dias no ciclo
     const totalDays = Math.floor((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
