@@ -12,7 +12,6 @@ O Sistema de Monitoramento de Performance é uma plataforma web desenvolvida par
 - Visualizar métricas através de gráficos interativos
 - Gerar relatórios executivos
 - Gerenciar metas e objetivos
-
 ### 👥 Para Quem é Destinado?
 
 - **Funcionários**: Para registrar pontos e acompanhar seu desempenho

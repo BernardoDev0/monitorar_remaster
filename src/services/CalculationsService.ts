@@ -68,7 +68,7 @@ export class CalculationsService {
     return new Date(cycleYear, cycleMonth - 1, 26);
   }
 
-  // Lógica original: getWeekDates() do calculations.py
+  // Lógica: getWeekDates() do calculations.py - CORRIGIDA PARA GARANTIR 26-02 NA SEMANA 1
   static getWeekDates(weekStr: string): WeekDates {
     const weekNum = parseInt(weekStr);
     if (weekNum < 1 || weekNum > 5) {
@@ -76,15 +76,18 @@ export class CalculationsService {
     }
 
     const today = new Date();
-    const currentMonth = today.getMonth() + 1; // getMonth() returns 0-11
-    const currentYear = today.getFullYear();
+    // FORÇAR timezone de São Paulo para consistência com outros métodos
+    const saoPauloDate = new Date(today.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+    const currentMonth = saoPauloDate.getMonth() + 1;
+    const currentYear = saoPauloDate.getFullYear();
     
     // Lógica baseada no ciclo 26→25
     let cycleYear = currentYear;
     let cycleMonth = currentMonth;
 
-    // Se já passou do dia 25, estamos no próximo ciclo
-    if (today.getDate() >= 26) {
+    // Se dia >= 26, estamos no ciclo que COMEÇA neste mês e termina no próximo
+    // Se dia < 26, estamos no ciclo que COMEÇOU no mês anterior e termina neste mês
+    if (saoPauloDate.getDate() >= 26) {
       // Manter mês atual - já está no próximo ciclo
       cycleMonth = currentMonth;
     } else {
@@ -103,33 +106,78 @@ export class CalculationsService {
     // Calcular total de dias no ciclo
     const totalDays = Math.floor((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
-    // Distribuir em 5 semanas de forma equilibrada
-    const daysPerWeek = Math.floor(totalDays / 5);
-    const extraDays = totalDays % 5;
+    // LÓGICA SIMPLES: Garantir que o período 26-(02 ou 07) esteja na Semana 1
+    // Para garantir que 26-02 fique na semana 1, vamos considerar que a semana 1 tem pelo menos 7 dias
+    // ou até o dia 02 do mês, o que for maior
+    const day02Date = new Date(cycleYear, cycleMonth - 1, 2); // Dia 02 do mês de término
     
-    // Calcular início da semana solicitada
-    let weekStartDate = new Date(cycleStart);
-    let daysToAdd = 0;
+    // Calcular a posição do dia 02 no ciclo
+    const day02Position = Math.floor((day02Date.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
-    for (let i = 1; i < weekNum; i++) {
-      const weekDays = daysPerWeek + (i <= extraDays ? 1 : 0);
-      daysToAdd += weekDays;
-    }
+    // Calcular o final da semana 1 para garantir que o dia 02 esteja incluído
+    // A semana 1 vai até o maior entre: posição do dia 02 ou 7 dias (para cobrir 26-02)
+    const week1End = Math.max(day02Position, 7);
     
-    weekStartDate.setDate(cycleStart.getDate() + daysToAdd);
-    
-    // Calcular fim da semana
-    const weekDays = daysPerWeek + (weekNum <= extraDays ? 1 : 0);
-    const weekEndDate = new Date(weekStartDate);
-    weekEndDate.setDate(weekStartDate.getDate() + weekDays - 1);
+    // Calcular datas para a semana solicitada
+    if (weekNum === 1) {
+      // Semana 1: do início do ciclo até week1End
+      const weekStartDate = new Date(cycleStart);
+      const weekEndDate = new Date(cycleStart);
+      weekEndDate.setDate(cycleStart.getDate() + week1End - 1);
+      
+      return {
+        start: formatDateISO(weekStartDate),
+        end: formatDateISO(weekEndDate)
+      };
+    } else {
+      // Distribuir os dias restantes nas semanas 2-5
+      const remainingDays = totalDays - week1End;
+      const remainingWeeksDays = Math.floor(remainingDays / 4); // 4 semanas restantes
+      const extraDays = remainingDays % 4;
+      
+      // Calcular dias acumulados para encontrar o início da semana solicitada
+      let daysFromStart = week1End; // Já contamos os dias da semana 1
+      
+      // Para semanas 2-5, calcular a posição distribuindo igualmente com extras nas primeiras
+      let dayCounter = 0;
+      for (let i = 2; i <= 5; i++) {
+        const weekExtraDay = i - 1 <= extraDays ? 1 : 0; // semanas 2,3,4,5 correspondem a índices extras 1,2,3,4
+        const weekDays = remainingWeeksDays + weekExtraDay;
+        
+        if (i < weekNum) {
+          // Acumular dias para semanas anteriores
+          dayCounter += weekDays;
+        } else if (i === weekNum) {
+          // Esta é a semana que estamos procurando
+          daysFromStart += dayCounter;
+          const weekStartDate = new Date(cycleStart);
+          weekStartDate.setDate(cycleStart.getDate() + daysFromStart);
+          
+          const weekEndDate = new Date(weekStartDate);
+          weekEndDate.setDate(weekStartDate.getDate() + weekDays - 1);
 
-    return {
-      start: formatDateISO(weekStartDate),
-      end: formatDateISO(weekEndDate)
-    };
+          return {
+            start: formatDateISO(weekStartDate),
+            end: formatDateISO(weekEndDate)
+          };
+        }
+      }
+      
+      // Se saiu do loop sem retornar, retornar a última semana (semana 5)
+      const weekStartDate = new Date(cycleStart);
+      weekStartDate.setDate(cycleStart.getDate() + daysFromStart);
+      
+      const weekEndDate = new Date(weekStartDate);
+      weekEndDate.setDate(weekStartDate.getDate() + remainingWeeksDays + (5 - 1 <= extraDays ? 1 : 0) - 1);
+
+      return {
+        start: formatDateISO(weekStartDate),
+        end: formatDateISO(weekEndDate)
+      };
+    }
   }
 
-  // Obter semana atual baseada no ciclo 26→25 (LÓGICA CORRIGIDA)
+  // Obter semana atual baseada no ciclo 26→25 (LÓGICA CORRIGIDA PARA GARANTIR 26-02 NA SEMANA 1)
   static getCurrentWeek(): number {
     const today = new Date();
     // FORÇAR timezone de São Paulo para funcionar no Vercel
@@ -142,14 +190,18 @@ export class CalculationsService {
     let cycleYear = currentYear;
     let cycleMonth = currentMonth;
 
-    // CORREÇÃO: Se dia <= 25, estamos no ciclo que TERMINA neste mês
-    // Se dia >= 26, estamos no ciclo que COMEÇOU neste mês
+    // Se dia >= 26, estamos no ciclo que COMEÇA neste mês e termina no próximo
+    // Se dia < 26, estamos no ciclo que COMEÇOU no mês anterior e termina neste mês
     if (currentDay >= 26) {
-      // Estamos no ciclo que COMEÇOU neste mês - manter mês atual
+      // Estamos no ciclo que COMEÇA neste mês (ex: 26/Set a 25/Out)
       cycleMonth = currentMonth;
     } else {
-      // Estamos no ciclo que TERMINA neste mês - usar mês atual
-      cycleMonth = currentMonth;
+      // Estamos no ciclo que TERMINA neste mês (ex: 26/Ago a 25/Set)
+      cycleMonth -= 1;
+      if (cycleMonth < 1) {
+        cycleMonth = 12;
+        cycleYear -= 1;
+      }
     }
 
     // Calcular início e fim do ciclo
@@ -159,28 +211,47 @@ export class CalculationsService {
     // Calcular total de dias no ciclo
     const totalDays = Math.floor((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
-    // Calcular dias decorridos desde o início
+    // Calcular dias decorridos desde o início do ciclo
     const daysElapsed = Math.floor((today.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
-    // Distribuir em 5 semanas de forma equilibrada
-    const daysPerWeek = Math.floor(totalDays / 5);
-    const extraDays = totalDays % 5;
+    // LÓGICA SIMPLES: Garantir que o período 26-(02 ou 07) esteja na Semana 1
+    // Para garantir que 26-02 fique na semana 1, vamos considerar que a semana 1 tem pelo menos 7 dias
+    // ou até o dia 02 do mês, o que for maior
+    const day02Date = new Date(cycleYear, cycleMonth - 1, 2); // Dia 02 do mês de término
     
-    // Calcular semana atual
-    let week = 1;
-    let daysCount = 0;
+    // Calcular a posição do dia 02 no ciclo
+    const day02Position = Math.floor((day02Date.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
-    for (let i = 1; i <= 5; i++) {
-      const weekDays = daysPerWeek + (i <= extraDays ? 1 : 0);
-      daysCount += weekDays;
-      
-      if (daysElapsed <= daysCount) {
-        week = i;
-        break;
-      }
+    // Calcular o final da semana 1 para garantir que o dia 02 esteja incluído
+    // A semana 1 vai até o maior entre: posição do dia 02 ou 7 dias (para cobrir 26-02)
+    const week1End = Math.max(day02Position, 7);
+    
+    if (daysElapsed <= week1End) {
+      return 1;
     }
     
-    return Math.min(Math.max(week, 1), 5);
+    // Distribuir os dias restantes nas semanas 2-5
+    const remainingDays = totalDays - week1End;
+    const remainingWeeksDays = Math.floor(remainingDays / 4); // 4 semanas restantes
+    const extraDays = remainingDays % 4;
+    
+    // Calcular a semana para dias após a semana 1
+    const daysAfterWeek1 = daysElapsed - week1End;
+    
+    // Distribuir igualmente entre as semanas 2-5, com os extras nas primeiras
+    let dayCounter = 0;
+    for (let weekIndex = 2; weekIndex <= 5; weekIndex++) {
+      const weekExtraDay = weekIndex - 1 <= extraDays ? 1 : 0; // semanas 2,3,4,5 correspondem a índices extras 1,2,3,4
+      const weekDays = remainingWeeksDays + weekExtraDay;
+      
+      if (daysAfterWeek1 <= dayCounter + weekDays) {
+        return weekIndex;
+      }
+      dayCounter += weekDays;
+    }
+    
+    // Caso não encaixe em nenhuma semana anterior (deveria ser semana 5)
+    return 5;
   }
 
   // Obter datas do ciclo mensal (26→25)
@@ -231,7 +302,8 @@ export class CalculationsService {
     let cycleYear = year;
     let cycleMonth = month;
 
-    // Se já passou do dia 25, pertence ao próximo ciclo
+    // Se dia >= 26, estamos no ciclo que COMEÇA neste mês e termina no próximo
+    // Se dia < 26, estamos no ciclo que COMEÇOU no mês anterior e termina neste mês
     if (day >= 26) {
       // Manter mês atual - já está no próximo ciclo
       cycleMonth = month;
@@ -254,25 +326,44 @@ export class CalculationsService {
     // Calcular dias decorridos desde o início
     const daysElapsed = Math.floor((date.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
-    // Distribuir em 5 semanas de forma equilibrada
-    const daysPerWeek = Math.floor(totalDays / 5);
-    const extraDays = totalDays % 5;
+    // LÓGICA SIMPLES: Garantir que o período 26-(02 ou 07) esteja na Semana 1
+    // Para garantir que 26-02 fique na semana 1, vamos considerar que a semana 1 tem pelo menos 7 dias
+    // ou até o dia 02 do mês, o que for maior
+    const day02Date = new Date(cycleYear, cycleMonth - 1, 2); // Dia 02 do mês de término
     
-    // Calcular semana atual
-    let week = 1;
-    let daysCount = 0;
+    // Calcular a posição do dia 02 no ciclo
+    const day02Position = Math.floor((day02Date.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
-    for (let i = 1; i <= 5; i++) {
-      const weekDays = daysPerWeek + (i <= extraDays ? 1 : 0);
-      daysCount += weekDays;
-      
-      if (daysElapsed <= daysCount) {
-        week = i;
-        break;
-      }
+    // Calcular o final da semana 1 para garantir que o dia 02 esteja incluído
+    // A semana 1 vai até o maior entre: posição do dia 02 ou 7 dias (para cobrir 26-02)
+    const week1End = Math.max(day02Position, 7);
+    
+    if (daysElapsed <= week1End) {
+      return 1;
     }
     
-    return Math.min(Math.max(week, 1), 5);
+    // Distribuir os dias restantes nas semanas 2-5
+    const remainingDays = totalDays - week1End;
+    const remainingWeeksDays = Math.floor(remainingDays / 4); // 4 semanas restantes
+    const extraDays = remainingDays % 4;
+    
+    // Calcular a semana para dias após a semana 1
+    const daysAfterWeek1 = daysElapsed - week1End;
+    
+    // Distribuir igualmente entre as semanas 2-5, com os extras nas primeiras
+    let dayCounter = 0;
+    for (let weekIndex = 2; weekIndex <= 5; weekIndex++) {
+      const weekExtraDay = weekIndex - 1 <= extraDays ? 1 : 0; // semanas 2,3,4,5 correspondem a índices extras 1,2,3,4
+      const weekDays = remainingWeeksDays + weekExtraDay;
+      
+      if (daysAfterWeek1 <= dayCounter + weekDays) {
+        return weekIndex;
+      }
+      dayCounter += weekDays;
+    }
+    
+    // Caso não encaixe em nenhuma semana anterior (deveria ser semana 5)
+    return 5;
   }
 
   // Semanas disponíveis (sempre 1-5)

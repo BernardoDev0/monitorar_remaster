@@ -307,7 +307,7 @@ export default function Graficos() {
               <Card className="bg-gradient-card shadow-card border-border">
                 <CardContent className="p-4">
                   <div className="text-center">
-                    <div className="text-xs text-muted-foreground mb-1">Pontos no Mês</div>
+                    <div className="text-xs text-muted-foreground mb-1">Pontos da semana</div>
                     <div className="font-semibold text-foreground text-lg">{(stats.totalPoints ?? 0).toLocaleString('pt-BR')} pts</div>
                     {stats.weekRange && (
                       <div className="text-xs text-muted-foreground">{stats.weekRange}</div>

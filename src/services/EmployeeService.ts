@@ -157,17 +157,22 @@ export class EmployeeService {
   // Calcular pontos da semana (baseado na lógica 26→25)
   static async getWeekPoints(employeeId: number, weekDates: { start: string; end: string }): Promise<number> {
     try {
-      // Tornar limite superior exclusivo: end + 1 dia
-      const endExclusive = new Date(`${weekDates.end}T00:00:00Z`);
-      endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
-      const endExclusiveStr = formatDateISO(endExclusive);
+      // FORÇAR timezone de São Paulo para consistência com CalculationsService
+      // Supabase armazena datas em formato ISO (YYYY-MM-DDTHH:mm:ss.sss)
+      // Converter para intervalo correto considerando o fuso de São Paulo
+      const startDate = new Date(weekDates.start + "T00:00:00-03:00"); // UTC-3 para São Paulo
+      const endDate = new Date(weekDates.end + "T23:59:59-03:00"); // Incluir o dia inteiro
+      
+      // Converter para formato ISO para a consulta
+      const startStr = startDate.toISOString();
+      const endStr = endDate.toISOString();
 
       const { data, error } = await supabase
         .from('entry')
         .select('points')
         .eq('employee_id', employeeId)
-        .gte('date', weekDates.start)
-        .lt('date', endExclusiveStr);
+        .gte('date', startStr)
+        .lte('date', endStr);  // Usar lte em vez de lt para incluir o dia final
 
       if (error) {
         console.error('Erro ao calcular pontos da semana:', error);
@@ -184,17 +189,21 @@ export class EmployeeService {
   // Calcular pontos mensais (baseado na lógica 26→25)
   static async getMonthPoints(employeeId: number, monthDates: { start: string; end: string }): Promise<number> {
     try {
-      // Tornar limite superior exclusivo: end + 1 dia
-      const endExclusive = new Date(`${monthDates.end}T00:00:00Z`);
-      endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
-      const endExclusiveStr = formatDateISO(endExclusive);
+      // FORÇAR timezone de São Paulo para consistência com CalculationsService
+      // Converter para intervalo correto considerando o fuso de São Paulo
+      const startDate = new Date(monthDates.start + "T00:00:00-03:00"); // UTC-3 para São Paulo
+      const endDate = new Date(monthDates.end + "T23:59:59-03:00"); // Incluir o dia inteiro
+      
+      // Converter para formato ISO para a consulta
+      const startStr = startDate.toISOString();
+      const endStr = endDate.toISOString();
 
       const { data, error } = await supabase
         .from('entry')
         .select('points')
         .eq('employee_id', employeeId)
-        .gte('date', monthDates.start)
-        .lt('date', endExclusiveStr);
+        .gte('date', startStr)
+        .lte('date', endStr);  // Usar lte em vez de lt para incluir o dia final
 
       if (error) {
         console.error('Erro ao calcular pontos mensais:', error);
