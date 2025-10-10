@@ -68,7 +68,7 @@ export class CalculationsService {
     return new Date(cycleYear, cycleMonth - 1, 26);
   }
 
-  // Lógica: getWeekDates() do calculations.py - CORRIGIDA PARA GARANTIR 26-02 NA SEMANA 1
+  // Lógica: getWeekDates() do calculations.py - CORRIGIDA PARA GARANTIR 26-02 NA SEMANA 1 e distribuição mais lógica de semanas
   static getWeekDates(weekStr: string): WeekDates {
     const weekNum = parseInt(weekStr);
     if (weekNum < 1 || weekNum > 5) {
@@ -130,46 +130,88 @@ export class CalculationsService {
         end: formatDateISO(weekEndDate)
       };
     } else {
-      // Distribuir os dias restantes nas semanas 2-5
+      // Distribuir os dias restantes nas semanas 2-5 de forma mais lógica (semanas de 7 dias com ajustes no final)
       const remainingDays = totalDays - week1End;
-      const remainingWeeksDays = Math.floor(remainingDays / 4); // 4 semanas restantes
-      const extraDays = remainingDays % 4;
+      // Aproximadamente 7 dias por semana, mas ajustando para o número total
+      const targetDaysPerWeek = 7;
       
-      // Calcular dias acumulados para encontrar o início da semana solicitada
-      let daysFromStart = week1End; // Já contamos os dias da semana 1
+      // Calcular quantos dias completos de 7 dias podemos ter e quantos dias sobram
+      const fullWeeks = Math.floor(remainingDays / 7);
+      let remainingAfterFullWeeks = remainingDays % 7;
       
-      // Para semanas 2-5, calcular a posição distribuindo igualmente com extras nas primeiras
-      let dayCounter = 0;
+      // Ajustar distribuição para que semanas 2-5 tenham no máximo 7 dias cada, 
+      // com os dias extras distribuídos no final
+      let dayOffset = week1End; // Começar após o fim da semana 1
+      
+      // Calcular o início e fim da semana solicitada
       for (let i = 2; i <= 5; i++) {
-        const weekExtraDay = i - 1 <= extraDays ? 1 : 0; // semanas 2,3,4,5 correspondem a índices extras 1,2,3,4
-        const weekDays = remainingWeeksDays + weekExtraDay;
-        
-        if (i < weekNum) {
-          // Acumular dias para semanas anteriores
-          dayCounter += weekDays;
-        } else if (i === weekNum) {
-          // Esta é a semana que estamos procurando
-          daysFromStart += dayCounter;
-          const weekStartDate = new Date(cycleStart);
-          weekStartDate.setDate(cycleStart.getDate() + daysFromStart);
+        if (i === weekNum) {
+          // Para cada semana após a primeira, tentar alocar 7 dias
+          let daysThisWeek;
+          if (i - 1 <= fullWeeks) {
+            // Atribuir 7 dias para as semanas completas
+            daysThisWeek = 7;
+          } else {
+            // Para semanas extras, distribuir os dias restantes
+            const remainingWeeks = 5 - i + 1; // quantas semanas faltam incluindo esta
+            daysThisWeek = Math.ceil(remainingAfterFullWeeks / remainingWeeks);
+            remainingAfterFullWeeks -= daysThisWeek;
+          }
           
-          const weekEndDate = new Date(weekStartDate);
-          weekEndDate.setDate(weekStartDate.getDate() + weekDays - 1);
+          // Certificar que não ultrapassa o final do ciclo
+          if (dayOffset + daysThisWeek > totalDays) {
+            daysThisWeek = totalDays - dayOffset;
+          }
+          
+          if (daysThisWeek <= 0) {
+            // Se não tem mais dias, retornar o último dia do ciclo
+            const weekStartDate = new Date(cycleStart);
+            weekStartDate.setDate(cycleStart.getDate() + dayOffset);
+            
+            const weekEndDate = new Date(cycleEnd); // ultimo dia do ciclo
+            return {
+              start: formatDateISO(weekStartDate),
+              end: formatDateISO(weekEndDate)
+            };
+          }
+          
+          const weekStartDate = new Date(cycleStart);
+          weekStartDate.setDate(cycleStart.getDate() + dayOffset);
+          
+          const weekEndDate = new Date(cycleStart);
+          weekEndDate.setDate(cycleStart.getDate() + dayOffset + daysThisWeek - 1);
 
           return {
             start: formatDateISO(weekStartDate),
             end: formatDateISO(weekEndDate)
           };
         }
+        
+        // Calcular dias para a semana atual para avançar o offset
+        let daysThisWeek;
+        if (i - 1 <= fullWeeks) {
+          // Atribuir 7 dias para as semanas completas
+          daysThisWeek = 7;
+        } else {
+          // Para semanas extras, distribuir os dias restantes
+          const remainingWeeks = 5 - i + 1; // quantas semanas faltam incluindo esta
+          daysThisWeek = Math.ceil(remainingAfterFullWeeks / remainingWeeks);
+          remainingAfterFullWeeks = remainingAfterFullWeeks - daysThisWeek;
+        }
+        
+        // Certificar que não ultrapassa o final do ciclo
+        if (dayOffset + daysThisWeek > totalDays) {
+          daysThisWeek = totalDays - dayOffset;
+        }
+        
+        dayOffset += daysThisWeek;
       }
       
       // Se saiu do loop sem retornar, retornar a última semana (semana 5)
       const weekStartDate = new Date(cycleStart);
-      weekStartDate.setDate(cycleStart.getDate() + daysFromStart);
+      weekStartDate.setDate(cycleStart.getDate() + dayOffset);
       
-      const weekEndDate = new Date(weekStartDate);
-      weekEndDate.setDate(weekStartDate.getDate() + remainingWeeksDays + (5 - 1 <= extraDays ? 1 : 0) - 1);
-
+      const weekEndDate = new Date(cycleEnd); // ultimo dia do ciclo
       return {
         start: formatDateISO(weekStartDate),
         end: formatDateISO(weekEndDate)
@@ -177,7 +219,7 @@ export class CalculationsService {
     }
   }
 
-  // Obter semana atual baseada no ciclo 26→25 (LÓGICA CORRIGIDA PARA GARANTIR 26-02 NA SEMANA 1)
+  // Obter semana atual baseada no ciclo 26→25 (LÓGICA CORRIGIDA PARA GARANTIR 26-02 NA SEMANA 1 e distribuição mais lógica de semanas)
   static getCurrentWeek(): number {
     const today = new Date();
     // FORÇAR timezone de São Paulo para funcionar no Vercel
@@ -230,19 +272,31 @@ export class CalculationsService {
       return 1;
     }
     
-    // Distribuir os dias restantes nas semanas 2-5
+    // Distribuir os dias restantes nas semanas 2-5 de forma mais lógica (semanas de 7 dias com ajustes no final)
     const remainingDays = totalDays - week1End;
-    const remainingWeeksDays = Math.floor(remainingDays / 4); // 4 semanas restantes
-    const extraDays = remainingDays % 4;
+    // Aproximadamente 7 dias por semana, mas ajustando para o número total
+    const targetDaysPerWeek = 7;
+    
+    // Calcular quantos dias completos de 7 dias podemos ter e quantos dias sobram
+    const fullWeeks = Math.floor(remainingDays / 7);
+    let remainingAfterFullWeeks = remainingDays % 7;
     
     // Calcular a semana para dias após a semana 1
     const daysAfterWeek1 = daysElapsed - week1End;
     
-    // Distribuir igualmente entre as semanas 2-5, com os extras nas primeiras
-    let dayCounter = 0;
+    // Percorrer semanas 2-5 para encontrar a correta
+    let dayCounter = 0; // Dias acumulados após a semana 1
     for (let weekIndex = 2; weekIndex <= 5; weekIndex++) {
-      const weekExtraDay = weekIndex - 1 <= extraDays ? 1 : 0; // semanas 2,3,4,5 correspondem a índices extras 1,2,3,4
-      const weekDays = remainingWeeksDays + weekExtraDay;
+      let weekDays;
+      if (weekIndex - 1 <= fullWeeks) {
+        // Atribuir 7 dias para as semanas completas
+        weekDays = 7;
+      } else {
+        // Para semanas extras, distribuir os dias restantes
+        const remainingWeeks = 5 - weekIndex + 1; // quantas semanas faltam incluindo esta
+        weekDays = Math.ceil(remainingAfterFullWeeks / remainingWeeks);
+        remainingAfterFullWeeks -= weekDays;
+      }
       
       if (daysAfterWeek1 <= dayCounter + weekDays) {
         return weekIndex;
@@ -291,7 +345,7 @@ export class CalculationsService {
     };
   }
 
-  // Determinar semana de uma data específica (baseado no ciclo 26→25)
+  // Determinar semana de uma data específica (baseado no ciclo 26→25) - CORRIGIDO
   static getWeekFromDate(dateStr: string): number {
     const date = new Date(dateStr);
     const day = date.getDate();
@@ -342,19 +396,31 @@ export class CalculationsService {
       return 1;
     }
     
-    // Distribuir os dias restantes nas semanas 2-5
+    // Distribuir os dias restantes nas semanas 2-5 de forma mais lógica (semanas de 7 dias com ajustes no final)
     const remainingDays = totalDays - week1End;
-    const remainingWeeksDays = Math.floor(remainingDays / 4); // 4 semanas restantes
-    const extraDays = remainingDays % 4;
+    // Aproximadamente 7 dias por semana, mas ajustando para o número total
+    const targetDaysPerWeek = 7;
+    
+    // Calcular quantos dias completos de 7 dias podemos ter e quantos dias sobram
+    const fullWeeks = Math.floor(remainingDays / 7);
+    let remainingAfterFullWeeks = remainingDays % 7;
     
     // Calcular a semana para dias após a semana 1
     const daysAfterWeek1 = daysElapsed - week1End;
     
-    // Distribuir igualmente entre as semanas 2-5, com os extras nas primeiras
-    let dayCounter = 0;
+    // Percorrer semanas 2-5 para encontrar a correta
+    let dayCounter = 0; // Dias acumulados após a semana 1
     for (let weekIndex = 2; weekIndex <= 5; weekIndex++) {
-      const weekExtraDay = weekIndex - 1 <= extraDays ? 1 : 0; // semanas 2,3,4,5 correspondem a índices extras 1,2,3,4
-      const weekDays = remainingWeeksDays + weekExtraDay;
+      let weekDays;
+      if (weekIndex - 1 <= fullWeeks) {
+        // Atribuir 7 dias para as semanas completas
+        weekDays = 7;
+      } else {
+        // Para semanas extras, distribuir os dias restantes
+        const remainingWeeks = 5 - weekIndex + 1; // quantas semanas faltam incluindo esta
+        weekDays = Math.ceil(remainingAfterFullWeeks / remainingWeeks);
+        remainingAfterFullWeeks -= weekDays;
+      }
       
       if (daysAfterWeek1 <= dayCounter + weekDays) {
         return weekIndex;
